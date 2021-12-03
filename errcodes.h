@@ -1,0 +1,12 @@
+#ifndef F_ERRCODES
+#define F_ERRCODES
+
+#define PR_SUCCESS 0
+#define PR_NOT_ENOUGH_MEMORY -1
+#define PR_COULD_NOT_START_THREAD -2
+#define PR_NO_CLIENT_WITH_SUCH_ID -3
+#define PR_NO_TASK_ASSOSIATED -4
+#define PR_NO_SUCH_FD_IN_THREAD -5
+#define PR_COULD_NOT_ACCEPT -6
+
+#endif
