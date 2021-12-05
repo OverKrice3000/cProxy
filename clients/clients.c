@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "proxy.h"
 #include <stdbool.h>
 #include <stdlib.h>
 #include "clients.h"
@@ -8,8 +9,6 @@
 #ifdef MULTITHREADED
     #include <pthread.h>
 #endif
-
-proxy_clients clients;
 
 int init_clients(){
     clients.clients = malloc(sizeof(proxy_client) * PR_CLIENTS_INIT_CAP);

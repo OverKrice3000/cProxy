@@ -1,9 +1,17 @@
 #ifndef F_PROXY
 #define F_PROXY
 
-#include <stdio.h>
 #include <stdbool.h>
 
-extern bool end_to_end = true;
+#define GET_MAX_LENGTH 8192
+#define PR_CACHE_INIT_CAP 16
+#define PR_ENTRY_INIT_SIZE 8192
+#define PR_START_RESIZE_COEF 3
+#define PR_RESIZE_COEF_DEC 0.9
+#define PR_CLIENTS_INIT_CAP 16
+#define PR_ASSOSIATIONS_INIT_CAP 16
+#define PR_POLLFD_INIT_CAPACITY 16
+
+extern bool end_to_end;
 
 #endif

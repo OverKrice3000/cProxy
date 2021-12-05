@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "proxy.h"
 #include "errcodes.h"
+#include "cache/cache.h"
 #include "clients/clients.h"
 #include "logger/log.h"
 #include "socket_to_task/socket_to_task.h"
@@ -20,8 +21,12 @@
 proxy_clients clients;
 assosiations task_assosiations;
 thread_pool pool;
+bool end_to_end;
+cache pr_cache;
 
 int main(int argc, char** argv){
+    end_to_end = true;
+
     int thread_pool_capacity = 1;
 #ifdef MULTITHREADED
     if(argc != 2){

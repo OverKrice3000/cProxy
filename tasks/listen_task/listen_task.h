@@ -3,8 +3,6 @@
 
 #include "tasks/task_types.h"
 
-
-
 typedef struct listen_task{
     int (*task_func)(worker_thread*, abstract_task* task);
     int (*abort_task) (worker_thread*, struct abstract_task*);

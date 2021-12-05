@@ -1,4 +1,5 @@
 #!/bin/bash
 cc -lsocket -lnsl -mt -D MULTITHREADED -I . \
 proxy.c socket_to_task/socket_to_task.c clients/clients.c \
-thread_pool/thread_pool.c logger/log.c tasks/tasks.c -o mtserver.out
+thread_pool/thread_pool.c logger/log.c tasks/tasks.c \
+http_parser/parser.c cache/cache.c -o mtserver.out

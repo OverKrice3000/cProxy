@@ -24,7 +24,7 @@ int do_listen_task(worker_thread* thread, abstract_task* task){
             return PR_NOT_ENOUGH_MEMORY;
         }
         log_trace("THREAD %d: Could not accept new connection", curthread_id());
-        return PR_COULD_NOT_ACCEPT;
+        return PR_CONTINUE;
     }
 
     get_url_task* new_url_task = malloc(sizeof(get_url_task));

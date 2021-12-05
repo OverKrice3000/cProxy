@@ -7,8 +7,6 @@
     #include <pthread.h>
 #endif
 
-#define PR_POLLFD_INIT_CAPACITY 16
-
 #ifdef MULTITHREADED
 typedef pthread_t worker_thread_t;
 #else

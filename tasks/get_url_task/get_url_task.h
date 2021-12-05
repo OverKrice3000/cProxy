@@ -3,7 +3,7 @@
 
 #include "tasks/task_types.h"
 
-#define GET_MAX_LENGTH 8192
+
 
 typedef struct get_url_task{
     int (*task_func)(worker_thread*, abstract_task* task);

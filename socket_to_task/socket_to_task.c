@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "proxy.h"
 #include <stdbool.h>
 #include <stdlib.h>
 #include "socket_to_task.h"
@@ -8,8 +9,6 @@
 #ifdef MULTITHREADED
     #include <pthread.h>
 #endif
-
-assosiations task_assosiations;
 
 int init_assosiations(){
     task_assosiations.assosiations = malloc(sizeof(assosiation) * PR_ASSOSIATIONS_INIT_CAP);

@@ -6,7 +6,6 @@
     #include <pthread.h>
 #endif
 
-#define PR_CLIENTS_INIT_CAP 16
 
 typedef struct proxy_client{
     int id;

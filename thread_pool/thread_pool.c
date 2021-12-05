@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "proxy.h"
 #include <stdlib.h>
 #include <stdbool.h>
 #include "errcodes.h"
@@ -15,8 +16,6 @@
 #include <sys/ddi.h>
 #include <unistd.h>
 #include "socket_to_task/socket_to_task.h"
-
-thread_pool pool;
 
 void* worker_thread_func(void* arg){
     worker_thread* self = (worker_thread*)arg;

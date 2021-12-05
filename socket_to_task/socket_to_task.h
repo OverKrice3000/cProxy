@@ -7,7 +7,6 @@
     #include <pthread.h>
 #endif
 
-#define PR_ASSOSIATIONS_INIT_CAP 16
 
 typedef struct sock_task_assosiation{
     int socket;
