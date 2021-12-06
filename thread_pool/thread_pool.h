@@ -20,7 +20,9 @@ typedef struct worker_thread{
     worker_thread_t id;
 #ifdef MULTITHREADED
     pthread_cond_t condvar;
+    pthread_mutex_t stop_mutex;
     pthread_mutex_t nsocks_mutex;
+    pthread_mutex_t poll_mutex;
 #endif
 } worker_thread;
 
@@ -46,6 +48,7 @@ int remove_fd(worker_thread* thread, int fd);
 int find_fd_index(worker_thread* thread, int fd);
 bool contains_fd(worker_thread* thread, int fd);
 int resize_fds();
+
 int close_worker_threads();
 int join_worker_threads();
 worker_thread_t curthread_id();

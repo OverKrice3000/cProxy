@@ -13,29 +13,33 @@
 #include "thread_pool.h"
 #include <sys/resource.h>
 #include "tasks/tasks.h"
-#include <sys/ddi.h>
 #include <unistd.h>
 #include "socket_to_task/socket_to_task.h"
 
 void* worker_thread_func(void* arg){
     worker_thread* self = (worker_thread*)arg;
-    struct rlimit file_rlimit;
-    getrlimit(RLIMIT_NOFILE, &file_rlimit);
-    rlim_t file_limit = file_rlimit.rlim_cur;
     log_trace("THREAD %d: Starting cycle!", curthread_id());
     while(true){
 #ifdef MULTITHREADED
+        pthread_mutex_lock(&self->stop_mutex);
         pthread_mutex_lock(&self->nsocks_mutex);
         while(self->nsocks <= 0){
+            pthread_mutex_unlock(&self->nsocks_mutex);
             log_info("THREAD %d: No tasks found. I sleep.", curthread_id());
-            pthread_cond_wait(&self->condvar, &self->nsocks_mutex);
+            pthread_cond_wait(&self->condvar, &self->stop_mutex);
+            pthread_mutex_lock(&self->nsocks_mutex);
         }
 #endif
-        int iter_nsocks = min(self->nsocks, file_limit);
+        int iter_nsocks = self->nsocks;
+#ifdef MULTITHREADED
+        pthread_mutex_unlock(&self->nsocks_mutex);
+        pthread_mutex_unlock(&self->stop_mutex);
+        pthread_mutex_lock(&self->poll_mutex);
+#endif
         log_trace("THREAD %d: New iteration has %d fds", curthread_id(), iter_nsocks);
         int poll_val = poll(self->socks, iter_nsocks, -1);
 #ifdef MULTITHREADED
-        pthread_mutex_unlock(&self->nsocks_mutex);
+        pthread_mutex_unlock(&self->poll_mutex);
 #endif
         if(poll_val == -1){
             log_warn("THREAD %d: Poll error occured!", curthread_id());
@@ -49,7 +53,6 @@ void* worker_thread_func(void* arg){
 #ifdef MULTITHREADED
             pthread_mutex_unlock(&self->nsocks_mutex);
 #endif
-
             if(cur_sock.revents != 0){
                 abstract_task* this_task = find_assosiation_by_sock(cur_sock.fd)->task;
                 if(cur_sock.revents & POLLERR){
@@ -87,19 +90,37 @@ int start_worker_thread(){
     new_thread->socks = malloc(sizeof(struct pollfd) * PR_POLLFD_INIT_CAPACITY);
     if(!new_thread->socks){
         new_thread->pollfd_capacity = 0;
-        return PR_COULD_NOT_START_THREAD;
+        return PR_NOT_ENOUGH_MEMORY;
     }
     new_thread->pollfd_capacity = PR_POLLFD_INIT_CAPACITY;
     if(pthread_cond_init(&new_thread->condvar, NULL)){
+        free(new_thread->socks);
+        return PR_COULD_NOT_START_THREAD;
+    }
+    if(pthread_mutex_init(&new_thread->poll_mutex, NULL)){
+        free(new_thread->socks);
+        pthread_cond_destroy(&new_thread->condvar);
         return PR_COULD_NOT_START_THREAD;
     }
     if(pthread_mutex_init(&new_thread->nsocks_mutex, NULL)){
+        free(new_thread->socks);
         pthread_cond_destroy(&new_thread->condvar);
+        pthread_mutex_destroy(&new_thread->poll_mutex);
+        return PR_COULD_NOT_START_THREAD;
+    }
+    if(pthread_mutex_init(&new_thread->stop_mutex, NULL)){
+        free(new_thread->socks);
+        pthread_cond_destroy(&new_thread->condvar);
+        pthread_mutex_destroy(&new_thread->poll_mutex);
+        pthread_mutex_destroy(&new_thread->nsocks_mutex);
         return PR_COULD_NOT_START_THREAD;
     }
     if(pthread_create(&new_thread->id, NULL, worker_thread_func, (void*)new_thread)){
+        free(new_thread->socks);
         pthread_cond_destroy(&new_thread->condvar);
+        pthread_mutex_destroy(&new_thread->poll_mutex);
         pthread_mutex_destroy(&new_thread->nsocks_mutex);
+        pthread_mutex_destroy(&new_thread->stop_mutex);
         return PR_COULD_NOT_START_THREAD;
     }
     pool.size++;
@@ -121,10 +142,25 @@ int add_curthread(){
     new_thread->id = 0;
 #ifdef MULTITHREADED
     if(pthread_cond_init(&new_thread->condvar, NULL)){
+        free(new_thread->socks);
+        return PR_COULD_NOT_START_THREAD;
+    }
+    if(pthread_mutex_init(&new_thread->poll_mutex, NULL)){
+        free(new_thread->socks);
+        pthread_cond_destroy(&new_thread->condvar);
         return PR_COULD_NOT_START_THREAD;
     }
     if(pthread_mutex_init(&new_thread->nsocks_mutex, NULL)){
+        free(new_thread->socks);
         pthread_cond_destroy(&new_thread->condvar);
+        pthread_mutex_destroy(&new_thread->poll_mutex);
+        return PR_COULD_NOT_START_THREAD;
+    }
+    if(pthread_mutex_init(&new_thread->stop_mutex, NULL)){
+        free(new_thread->socks);
+        pthread_cond_destroy(&new_thread->condvar);
+        pthread_mutex_destroy(&new_thread->poll_mutex);
+        pthread_mutex_destroy(&new_thread->nsocks_mutex);
         return PR_COULD_NOT_START_THREAD;
     }
     new_thread->id = pthread_self();
@@ -157,7 +193,9 @@ int destroy_thread_pool(){
     for(int i = 0; i < pool.size; i++){
 #ifdef MULTITHREADED
         pthread_cond_destroy(&pool.threads[i].condvar);
+        pthread_mutex_destroy(&pool.threads[i].poll_mutex);
         pthread_mutex_destroy(&pool.threads[i].nsocks_mutex);
+        pthread_mutex_destroy(&pool.threads[i].stop_mutex);
 #endif
         free(pool.threads[i].socks);
     }
@@ -188,15 +226,22 @@ worker_thread_t curthread_id(){
 
 int add_fd(worker_thread* thread, int fd, short events){
 #ifdef MULTITHREADED
-    bool locked = (pthread_mutex_lock(&thread->nsocks_mutex)) ? false : true;
+    pthread_mutex_lock(&thread->nsocks_mutex);
 #endif
     int return_code = PR_SUCCESS;
-    if(thread->pollfd_capacity == thread->nsocks)
+    if(thread->pollfd_capacity == thread->nsocks){
+#ifdef MULTITHREADED
+        pthread_mutex_lock(&thread->poll_mutex);
+#endif
         return_code = resize_fds();
+#ifdef MULTITHREADED
+        pthread_mutex_unlock(&thread->poll_mutex);
+#endif
+    }
+
     if(return_code == PR_NOT_ENOUGH_MEMORY){
 #ifdef MULTITHREADED
-        if(locked)
-            pthread_mutex_unlock(&thread->nsocks_mutex);
+        pthread_mutex_unlock(&thread->nsocks_mutex);
 #endif
         log_trace("THREAD %d: Could not add fd %d to thread %d", curthread_id(), fd, thread->id);
         return PR_NOT_ENOUGH_MEMORY;
@@ -208,8 +253,7 @@ int add_fd(worker_thread* thread, int fd, short events){
     };
     thread->socks[thread->nsocks++] = new_fd;
 #ifdef MULTITHREADED
-    if(locked)
-        pthread_mutex_unlock(&thread->nsocks_mutex);
+    pthread_mutex_unlock(&thread->nsocks_mutex);
 #endif
     log_trace("THREAD %d: Successfully added fd %d to thread %d", curthread_id(), fd, thread->id);
     return PR_SUCCESS;
@@ -217,18 +261,18 @@ int add_fd(worker_thread* thread, int fd, short events){
 
 int remove_fd(worker_thread* thread, int fd){
     int index = find_fd_index(thread, fd);
+#ifdef MULTITHREADED
+    pthread_mutex_lock(&thread->nsocks_mutex);
+#endif
     assert(index < thread->nsocks && index >= 0);
     if(index == PR_NO_SUCH_FD_IN_THREAD) {
         log_trace("THREAD %d: No such fd %d in thread %d", curthread_id(), fd, thread->id);
         return PR_NO_SUCH_FD_IN_THREAD;
     }
-#ifdef MULTITHREADED
-    bool locked = (pthread_mutex_lock(&thread->nsocks_mutex)) ? false : true;
-#endif
+
     thread->socks[index] = thread->socks[--thread->nsocks];
 #ifdef MULTITHREADED
-    if(locked)
-        pthread_mutex_unlock(&thread->nsocks_mutex);
+    pthread_mutex_unlock(&thread->nsocks_mutex);
 #endif
     log_trace("THREAD %d: Successfully removed fd %d from thread %d", curthread_id(), fd, thread->id);
     return PR_SUCCESS;
@@ -251,21 +295,19 @@ int resize_fds(worker_thread* thread){
 
 int find_fd_index(worker_thread* thread, int fd){
 #ifdef MULTITHREADED
-    bool locked = (pthread_mutex_lock(&thread->nsocks_mutex)) ? false : true;
+    pthread_mutex_lock(&thread->nsocks_mutex);
 #endif
     for(int i = 0; i < thread->nsocks; i++){
         if(thread->socks[i].fd == fd){
 #ifdef MULTITHREADED
-            if(locked)
-                pthread_mutex_unlock(&thread->nsocks_mutex);
+            pthread_mutex_unlock(&thread->nsocks_mutex);
 #endif
             log_trace("THREAD %d: Successfully found fd %d from thread %d", curthread_id(), fd, thread->id);
             return i;
         }
     }
 #ifdef MULTITHREADED
-    if(locked)
-        pthread_mutex_unlock(&thread->nsocks_mutex);
+    pthread_mutex_unlock(&thread->nsocks_mutex);
 #endif
     log_trace("THREAD %d: No such fd %d in thread %d", curthread_id(), fd, thread->id);
     return PR_NO_SUCH_FD_IN_THREAD;
@@ -274,3 +316,4 @@ int find_fd_index(worker_thread* thread, int fd){
 bool contains_fd(worker_thread* thread, int fd){
     (find_fd_index(thread, fd) == PR_NO_SUCH_FD_IN_THREAD) ? false : true;
 }
+

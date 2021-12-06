@@ -14,7 +14,6 @@ int do_end_client_task(worker_thread* thread, abstract_task* task){
     client_task* dec_task = (client_task*)task;
     assert(remove_fd(thread, dec_task->client_socket) == PR_SUCCESS);
     assert(remove_assosiation_by_sock(dec_task->client_socket) == PR_SUCCESS);
-    assert(remove_client_by_id(dec_task->client_id) == PR_SUCCESS);
     free(task);
     return 0;
 }

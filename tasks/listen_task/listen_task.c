@@ -5,15 +5,12 @@
 #include <sys/types.h>
 #include "thread_pool/thread_pool.h"
 #include "socket_to_task/socket_to_task.h"
-#include "clients/clients.h"
 #include "logger/log.h"
 #include <unistd.h>
 #include <errno.h>
 #ifdef MULTITHREADED
     #include <pthread.h>
 #endif
-
-extern int next_id = 0;
 
 int do_listen_task(worker_thread* thread, abstract_task* task){
     listen_task* dec_task = (listen_task*)task;
@@ -41,21 +38,6 @@ int do_listen_task(worker_thread* thread, abstract_task* task){
         return PR_NOT_ENOUGH_MEMORY;
     }
     new_url_task->client_socket = new_sock;
-    new_url_task->client_id = next_id;
-
-    proxy_client new_client = {
-            .id = next_id,
-            .sock = new_sock,
-            .url = NULL
-    };
-    int client_val = add_client(new_client);
-    if(client_val == PR_NOT_ENOUGH_MEMORY){
-        close(new_sock);
-        free_get_url_task(new_url_task);
-        free(new_url_task);
-        log_trace("THREAD %d: Not enough memory to add new client!", curthread_id());
-        return PR_NOT_ENOUGH_MEMORY;
-    }
 
     assosiation new_assosiation = {
             .socket = new_sock,
@@ -66,7 +48,6 @@ int do_listen_task(worker_thread* thread, abstract_task* task){
         close(new_sock);
         free_get_url_task(new_url_task);
         free(new_url_task);
-        remove_client_by_id(next_id);
         log_trace("THREAD %d: Not enough memory to add new assosiation!", curthread_id());
         return PR_NOT_ENOUGH_MEMORY;
     }
@@ -77,7 +58,6 @@ int do_listen_task(worker_thread* thread, abstract_task* task){
         close(new_sock);
         free_get_url_task(new_url_task);
         free(new_url_task);
-        remove_client_by_id(next_id);
         remove_assosiation_by_sock(new_sock);
         log_trace("THREAD %d: Not enough memory to add fd to thread %d!", curthread_id(), opt->id);
         return PR_NOT_ENOUGH_MEMORY;
@@ -86,8 +66,7 @@ int do_listen_task(worker_thread* thread, abstract_task* task){
     pthread_cond_signal(&opt->condvar);
 #endif
 
-    log_info("THREAD %d: Accepted new connection. Socket : %d. Client : %d", curthread_id(), new_sock, next_id);
-    next_id++;
+    log_info("THREAD %d: Accepted new connection. Socket : %d.", curthread_id(), new_sock);
     return PR_SUCCESS;
 }
 

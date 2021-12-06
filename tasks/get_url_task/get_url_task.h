@@ -10,7 +10,6 @@ typedef struct get_url_task{
     int client_socket;
     char* get_query;
     int progress;
-    int client_id;
 } get_url_task;
 
 int do_get_url_task(worker_thread* thread, abstract_task* task);

@@ -7,7 +7,7 @@ typedef struct client_task{
     task_type type;
     int client_socket;
     int progress;
-    int client_id;
+    char* url;
     server_task* server;
 } client_task;
 
