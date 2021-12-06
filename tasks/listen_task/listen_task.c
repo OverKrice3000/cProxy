@@ -46,7 +46,7 @@ int do_listen_task(worker_thread* thread, abstract_task* task){
     proxy_client new_client = {
             .id = next_id,
             .sock = new_sock,
-            .query = new_url_task->get_query
+            .url = NULL
     };
     int client_val = add_client(new_client);
     if(client_val == PR_NOT_ENOUGH_MEMORY){

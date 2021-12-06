@@ -53,6 +53,8 @@ int remove_client_by_id(int id){
     bool removed = false;
     for(int i = 0; i < clients.size; i++){
         if(clients.clients[i].id == id){
+            if(clients.clients[i].url)
+                free(clients.clients[i].url);
             clients.clients[i] = clients.clients[--clients.size];
             removed = true;
             break;

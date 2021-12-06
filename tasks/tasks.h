@@ -12,5 +12,7 @@ typedef struct abstract_task{
 
 #include "listen_task/listen_task.h"
 #include "get_url_task/get_url_task.h"
+#include "server_task/server_task.h"
+#include "client_task/client_task.h"
 
 #endif

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include "proxy.h"
 #include "errcodes.h"
 #include "cache/cache.h"
@@ -21,11 +22,14 @@
 proxy_clients clients;
 assosiations task_assosiations;
 thread_pool pool;
-bool end_to_end;
 cache pr_cache;
+
+bool end_to_end;
+bool finished;
 
 int main(int argc, char** argv){
     end_to_end = true;
+    finished = false;
 
     int thread_pool_capacity = 1;
 #ifdef MULTITHREADED
@@ -149,4 +153,12 @@ int main(int argc, char** argv){
     destroy_assosiations();
     destroy_clients();
 	return 0;
+}
+
+bool is_end_to_end(){
+    return end_to_end;
+}
+
+bool is_finished(){
+    return finished;
 }

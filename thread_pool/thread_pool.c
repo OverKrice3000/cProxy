@@ -188,14 +188,15 @@ worker_thread_t curthread_id(){
 
 int add_fd(worker_thread* thread, int fd, short events){
 #ifdef MULTITHREADED
-    pthread_mutex_lock(&thread->nsocks_mutex);
+    bool locked = (pthread_mutex_lock(&thread->nsocks_mutex)) ? false : true;
 #endif
     int return_code = PR_SUCCESS;
     if(thread->pollfd_capacity == thread->nsocks)
         return_code = resize_fds();
     if(return_code == PR_NOT_ENOUGH_MEMORY){
 #ifdef MULTITHREADED
-        pthread_mutex_unlock(&thread->nsocks_mutex);
+        if(locked)
+            pthread_mutex_unlock(&thread->nsocks_mutex);
 #endif
         log_trace("THREAD %d: Could not add fd %d to thread %d", curthread_id(), fd, thread->id);
         return PR_NOT_ENOUGH_MEMORY;
@@ -207,7 +208,8 @@ int add_fd(worker_thread* thread, int fd, short events){
     };
     thread->socks[thread->nsocks++] = new_fd;
 #ifdef MULTITHREADED
-    pthread_mutex_unlock(&thread->nsocks_mutex);
+    if(locked)
+        pthread_mutex_unlock(&thread->nsocks_mutex);
 #endif
     log_trace("THREAD %d: Successfully added fd %d to thread %d", curthread_id(), fd, thread->id);
     return PR_SUCCESS;
@@ -221,11 +223,12 @@ int remove_fd(worker_thread* thread, int fd){
         return PR_NO_SUCH_FD_IN_THREAD;
     }
 #ifdef MULTITHREADED
-    pthread_mutex_lock(&thread->nsocks_mutex);
+    bool locked = (pthread_mutex_lock(&thread->nsocks_mutex)) ? false : true;
 #endif
     thread->socks[index] = thread->socks[--thread->nsocks];
 #ifdef MULTITHREADED
-    pthread_mutex_unlock(&thread->nsocks_mutex);
+    if(locked)
+        pthread_mutex_unlock(&thread->nsocks_mutex);
 #endif
     log_trace("THREAD %d: Successfully removed fd %d from thread %d", curthread_id(), fd, thread->id);
     return PR_SUCCESS;
@@ -248,19 +251,21 @@ int resize_fds(worker_thread* thread){
 
 int find_fd_index(worker_thread* thread, int fd){
 #ifdef MULTITHREADED
-    pthread_mutex_lock(&thread->nsocks_mutex);
+    bool locked = (pthread_mutex_lock(&thread->nsocks_mutex)) ? false : true;
 #endif
     for(int i = 0; i < thread->nsocks; i++){
         if(thread->socks[i].fd == fd){
 #ifdef MULTITHREADED
-            pthread_mutex_unlock(&thread->nsocks_mutex);
+            if(locked)
+                pthread_mutex_unlock(&thread->nsocks_mutex);
 #endif
             log_trace("THREAD %d: Successfully found fd %d from thread %d", curthread_id(), fd, thread->id);
             return i;
         }
     }
 #ifdef MULTITHREADED
-    pthread_mutex_unlock(&thread->nsocks_mutex);
+    if(locked)
+        pthread_mutex_unlock(&thread->nsocks_mutex);
 #endif
     log_trace("THREAD %d: No such fd %d in thread %d", curthread_id(), fd, thread->id);
     return PR_NO_SUCH_FD_IN_THREAD;

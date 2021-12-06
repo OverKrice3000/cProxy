@@ -10,7 +10,7 @@
 typedef struct proxy_client{
     int id;
     int sock;
-    char* query;
+    char* url;
 } proxy_client;
 
 typedef struct proxy_clients{

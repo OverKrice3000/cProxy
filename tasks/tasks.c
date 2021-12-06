@@ -1,3 +1,5 @@
 #include "tasks.h"
 #include "listen_task/listen_task.c"
 #include "get_url_task/get_url_task.c"
+#include "server_task/server_task.c"
+#include "client_task/client_task.c"

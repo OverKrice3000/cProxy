@@ -7,7 +7,6 @@
     #include <pthread.h>
 #endif
 
-
 typedef struct sock_task_assosiation{
     int socket;
     abstract_task* task;
@@ -30,5 +29,10 @@ int remove_assosiation_by_sock(int sock);
 assosiation* find_assosiation_by_sock(int sock);
 int resize_assosiations();
 int destroy_assosiations();
+
+#ifdef MULTITHREADED
+void lock_assosiations();
+void unlock_assosiations();
+#endif
 
 #endif

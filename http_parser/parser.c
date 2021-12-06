@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include "proxy.h"
 #include <stdbool.h>
+#include <string.h>
+#include <stdlib.h>
 #include "parser.h"
 #include "logger/log.h"
 #include "errcodes.h"
@@ -40,6 +42,11 @@ int parse_query(char** query_init, int* query_length){
     }
     progress -= NEWLINE_LENGTH;
     query += NEWLINE_LENGTH;
+    if(starts_with_name(NEWLINE, query)) {
+        progress -= NEWLINE_LENGTH;
+        *query_length -= progress;
+        return PR_SUCCESS;
+    }
 
     char* last_query = query;
     int last_progress = progress;
@@ -96,5 +103,20 @@ bool starts_with_name(char* name, char* string){
         return true;
     else
         return false;
+}
+
+int urlcpy(char* query, char** url_addr){
+    query += 4;
+    int url_length = 0;
+    while(*(query++) != ' ' && ++url_length);
+    char* url = malloc(sizeof(char) * (url_length + 1));
+    if(!url){
+        log_trace("THREAD %d: Not enough memory to allocate place for url", curthread_id());
+        return PR_NOT_ENOUGH_MEMORY;
+    }
+    strncpy(url, query, url_length);
+    url[url_length] = '\0';
+    *url_addr = url;
+    return PR_SUCCESS;
 }
 
