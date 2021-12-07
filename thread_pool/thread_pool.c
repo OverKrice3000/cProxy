@@ -95,25 +95,25 @@ int start_worker_thread(){
     new_thread->pollfd_capacity = PR_POLLFD_INIT_CAPACITY;
     if(pthread_cond_init(&new_thread->condvar, NULL)){
         free(new_thread->socks);
-        return PR_COULD_NOT_START_THREAD;
+        return PR_NOT_ENOUGH_MEMORY;
     }
     if(pthread_mutex_init(&new_thread->poll_mutex, NULL)){
         free(new_thread->socks);
         pthread_cond_destroy(&new_thread->condvar);
-        return PR_COULD_NOT_START_THREAD;
+        return PR_NOT_ENOUGH_MEMORY;
     }
     if(pthread_mutex_init(&new_thread->nsocks_mutex, NULL)){
         free(new_thread->socks);
         pthread_cond_destroy(&new_thread->condvar);
         pthread_mutex_destroy(&new_thread->poll_mutex);
-        return PR_COULD_NOT_START_THREAD;
+        return PR_NOT_ENOUGH_MEMORY;
     }
     if(pthread_mutex_init(&new_thread->stop_mutex, NULL)){
         free(new_thread->socks);
         pthread_cond_destroy(&new_thread->condvar);
         pthread_mutex_destroy(&new_thread->poll_mutex);
         pthread_mutex_destroy(&new_thread->nsocks_mutex);
-        return PR_COULD_NOT_START_THREAD;
+        return PR_NOT_ENOUGH_MEMORY;
     }
     if(pthread_create(&new_thread->id, NULL, worker_thread_func, (void*)new_thread)){
         free(new_thread->socks);
@@ -136,32 +136,32 @@ int add_curthread(){
     new_thread->socks = malloc(sizeof(struct pollfd) * PR_POLLFD_INIT_CAPACITY);
     if(!new_thread->socks){
         new_thread->pollfd_capacity = 0;
-        return PR_COULD_NOT_START_THREAD;
+        return PR_NOT_ENOUGH_MEMORY;
     }
     new_thread->pollfd_capacity = PR_POLLFD_INIT_CAPACITY;
     new_thread->id = 0;
 #ifdef MULTITHREADED
     if(pthread_cond_init(&new_thread->condvar, NULL)){
         free(new_thread->socks);
-        return PR_COULD_NOT_START_THREAD;
+        return PR_NOT_ENOUGH_MEMORY;
     }
     if(pthread_mutex_init(&new_thread->poll_mutex, NULL)){
         free(new_thread->socks);
         pthread_cond_destroy(&new_thread->condvar);
-        return PR_COULD_NOT_START_THREAD;
+        return PR_NOT_ENOUGH_MEMORY;
     }
     if(pthread_mutex_init(&new_thread->nsocks_mutex, NULL)){
         free(new_thread->socks);
         pthread_cond_destroy(&new_thread->condvar);
         pthread_mutex_destroy(&new_thread->poll_mutex);
-        return PR_COULD_NOT_START_THREAD;
+        return PR_NOT_ENOUGH_MEMORY;
     }
     if(pthread_mutex_init(&new_thread->stop_mutex, NULL)){
         free(new_thread->socks);
         pthread_cond_destroy(&new_thread->condvar);
         pthread_mutex_destroy(&new_thread->poll_mutex);
         pthread_mutex_destroy(&new_thread->nsocks_mutex);
-        return PR_COULD_NOT_START_THREAD;
+        return PR_NOT_ENOUGH_MEMORY;
     }
     new_thread->id = pthread_self();
 #endif

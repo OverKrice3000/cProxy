@@ -107,7 +107,7 @@ int main(int argc, char** argv){
 
 #ifdef MULTITHREADED
     for(int i = 0; i < thread_pool_capacity - 1; i++){
-        if(start_worker_thread() == PR_COULD_NOT_START_THREAD){
+        if(start_worker_thread() != PR_SUCCESS){
             perror("Could not start a thread");
             close_worker_threads();
             close(server_socket);

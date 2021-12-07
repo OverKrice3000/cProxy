@@ -76,19 +76,24 @@ int parse_query(char** query_init, int* query_length){
     return PR_SUCCESS;
 }
 
-int find_header_by_name(char* query, char* name, char** value){
+int find_header_by_name(char* query, char* name, char** value, int* val_length){
     while(*(query++) != ' ');
     while(*(query++) != ' ');
     while(*(query++) != '\n');
+    if(starts_with_name(NEWLINE, query))
+        return PR_NO_SUCH_HEADER;
     while(true){
         char* temp_query = query;
-        while(*(query++) != ':');
-        query++;
         if(starts_with_name(name, query)){
+            while(*(query++) != ':');
+            query++;
             *value = query;
+            while(*(query++) != '\n');
+            *val_length = query - NEWLINE_LENGTH - *value;
             return PR_SUCCESS;
         }
         while(*(query++) != '\n');
+
         if(starts_with_name(NEWLINE, query))
             break;
     }

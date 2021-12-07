@@ -16,8 +16,9 @@ typedef struct server_task{
     char* query;
 } server_task;
 
-int init_server_task(server_task* task);
+int init_server_task(server_task* task, char* query);
 int free_server_task(server_task* task);
+
 
 #include "cache_server_task/cache_server_task.h"
 #include "end_server_task/end_server_task.h"

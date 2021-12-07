@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdbool.h>
 #include "proxy.h"
 #include "tasks/tasks.h"
 #include <sys/socket.h>
@@ -14,7 +15,6 @@
 
 #define NO_SERVER 0
 #define SERVER_UP 1
-
 
 int do_get_url_task(worker_thread* thread, abstract_task* task){
     get_url_task* dec_task = (get_url_task*)task;
@@ -65,6 +65,7 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
     assert(rm_ass_val == PR_SUCCESS);
     int rm_fd_val = remove_fd(thread, dec_task->client_socket);
     assert(rm_fd_val == PR_SUCCESS);
+    dec_task->removed = true;
 
     int mode = NO_SERVER;
     client_task* client = malloc(sizeof(client_task));
@@ -124,8 +125,8 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
             return abort_get_url_task(thread, task);
         }
         set_connect_task((abstract_task*)server);
-        int init_serv_val = init_server_task(server);
-        if(init_serv_val == PR_NOT_ENOUGH_MEMORY){
+        int init_serv_val = init_server_task(server, dec_task->get_query);
+        if(init_serv_val != PR_SUCCESS){
             free(client);
             free(client->url);
             free(server);
@@ -134,7 +135,6 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
         }
         client->server = server;
         server->clients[0] = client;
-        server->query = dec_task->get_query;
     }
 
     worker_thread* opt_client = find_optimal_thread();
@@ -201,6 +201,7 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
             return abort_get_url_task(thread, task);
         }
 #ifdef MULTITHREADED
+        pthread_cond_signal(&opt_server->condvar);
         pthread_mutex_unlock(&opt_server->stop_mutex);
 #endif
     }
@@ -208,17 +209,23 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
         free(dec_task->get_query);
     }
 #ifdef MULTITHREADED
+    pthread_cond_signal(&opt_client->condvar);
     pthread_mutex_unlock(&opt_client->stop_mutex);
 #endif
+
     log_trace("THREAD %d: Successfully finished get_url_task", curthread_id());
     return PR_SUCCESS;
 }
 
 int abort_get_url_task(worker_thread* thread, abstract_task* task){
     get_url_task* dec_task = (get_url_task*)task;
-    int ass_val = remove_assosiation_by_sock(dec_task->client_socket);
+    if(!dec_task->removed){
+        int ass_val = remove_assosiation_by_sock(dec_task->client_socket);
+        assert(ass_val == PR_SUCCESS);
+        int fd_val = remove_fd(thread, dec_task->client_socket);
+        assert(fd_val == PR_SUCCESS);
+    }
     free(dec_task->get_query);
-    int fd_val = remove_fd(thread, dec_task->client_socket);
     close(dec_task->client_socket);
     free(task);
     return PR_SUCCESS;
@@ -229,6 +236,7 @@ int init_get_url_task(get_url_task* task){
     task->abort_task = abort_get_url_task;
     task->type = GET_URL_TASK;
     task->progress = 0;
+    task->removed = false;
     task->get_query = malloc(sizeof(char) * GET_MAX_LENGTH);
     if(!task->get_query){
         log_trace("THREAD %d: not enough memory to initialize get_url_task!", curthread_id());

@@ -13,6 +13,7 @@
 #define PR_POLLFD_INIT_CAPACITY 16
 #define PR_END_SERVER_BUFSIZ 8192
 #define PR_SERVER_CLIENTS_INIT_CAP 16
+#define PR_GETHOST_BUFSIZ 8192
 
 extern bool end_to_end;
 extern bool finished;
