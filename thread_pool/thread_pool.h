@@ -47,7 +47,7 @@ int add_fd(worker_thread* thread, int fd, short events);
 int remove_fd(worker_thread* thread, int fd);
 int find_fd_index(worker_thread* thread, int fd);
 bool contains_fd(worker_thread* thread, int fd);
-int resize_fds();
+int resize_fds(worker_thread* thread);
 
 int close_worker_threads();
 int join_worker_threads();

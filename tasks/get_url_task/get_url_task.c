@@ -60,9 +60,8 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
         }
         return PR_CONTINUE;
     }
-
-    log_info("THREAD %d: Successfully parsed get query from client with socket %d. Query :\n%s", curthread_id(), dec_task->client_socket, dec_task->get_query);
     dec_task->get_query[dec_task->progress] = '\0';
+    log_info("THREAD %d: Successfully parsed get query from client with socket %d. Query :\n%s", curthread_id(), dec_task->client_socket, dec_task->get_query);
     int rm_ass_val = remove_assosiation_by_sock(dec_task->client_socket);
     assert(rm_ass_val == PR_SUCCESS);
     int rm_fd_val = remove_fd(thread, dec_task->client_socket);

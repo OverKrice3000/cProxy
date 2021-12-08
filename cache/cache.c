@@ -232,7 +232,7 @@ int send_entry_to_socket(cache_entry* entry, int socket, int progress){
     }
     int to_send_len = min(PR_BYTES_FROM_CACHE_PER_ITERATION, cursize - progress);
     char* to_send = entry->value + progress;
-    int send_val = send(socket, to_send, to_send_len, 0);
+    int send_val = send(socket, to_send, to_send_len, MSG_NOSIGNAL);
 #ifdef MULTITHREADED
     pthread_rwlock_unlock(&entry->value_lock);
     pthread_rwlock_unlock(&pr_cache.remove_lock);

@@ -222,6 +222,7 @@ int add_client_tasks_fd(worker_thread* thread, abstract_task* task){
         if(fd_val == PR_NOT_ENOUGH_MEMORY)
             return PR_NOT_ENOUGH_MEMORY;
     }
+    return PR_SUCCESS;
 }
 
 bool is_server_aborted(server_task* task){

@@ -17,7 +17,7 @@ int do_end_client_task(worker_thread* thread, abstract_task* task){
     }
     int to_read = dec_task->server->progress - dec_task->progress;
     assert(to_read > 0);
-    int send_val = send(dec_task->client_socket, dec_task->server->end_buf + (dec_task->server->end_progress - to_read), to_read, 0);
+    int send_val = send(dec_task->client_socket, dec_task->server->end_buf + (dec_task->server->end_progress - to_read), to_read, MSG_NOSIGNAL);
     if(send_val == -1){
         if(errno == EWOULDBLOCK){
             return PR_CONTINUE;

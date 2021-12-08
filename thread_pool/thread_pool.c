@@ -234,10 +234,11 @@ int add_fd(worker_thread* thread, int fd, short events){
 #endif
     int return_code = PR_SUCCESS;
     if(thread->pollfd_capacity == thread->nsocks){
+        log_trace("THREAD %d: Resizing fds array of %d thread", curthread_id(), thread->id);
 #ifdef MULTITHREADED
         pthread_mutex_lock(&thread->poll_mutex);
 #endif
-        return_code = resize_fds();
+        return_code = resize_fds(thread);
 #ifdef MULTITHREADED
         pthread_mutex_unlock(&thread->poll_mutex);
 #endif

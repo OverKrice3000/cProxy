@@ -12,7 +12,7 @@ int set_connect_task(abstract_task* task){
 
 int do_connect_task(worker_thread* thread, abstract_task* task){
     server_task* dec_task = (server_task*)task;
-    ssize_t send_val = send(dec_task->server_socket, dec_task->query, dec_task->query_length - dec_task->progress, 0);
+    ssize_t send_val = send(dec_task->server_socket, dec_task->query, dec_task->query_length - dec_task->progress, MSG_NOSIGNAL);
     if(send_val == -1){
         if(errno == EWOULDBLOCK)
             return PR_CONTINUE;
