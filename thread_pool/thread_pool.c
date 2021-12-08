@@ -20,6 +20,7 @@ void* worker_thread_func(void* arg){
     worker_thread* self = (worker_thread*)arg;
     log_trace("THREAD %d: Starting cycle!", curthread_id());
     while(true){
+        log_trace("THREAD %d: Starting iteration!", curthread_id());
 #ifdef MULTITHREADED
         pthread_mutex_lock(&self->stop_mutex);
         pthread_mutex_lock(&self->nsocks_mutex);
@@ -50,14 +51,16 @@ void* worker_thread_func(void* arg){
             pthread_mutex_lock(&self->nsocks_mutex);
 #endif
             struct pollfd cur_sock = self->socks[i];
+
 #ifdef MULTITHREADED
             pthread_mutex_unlock(&self->nsocks_mutex);
 #endif
             if(cur_sock.revents != 0){
                 abstract_task* this_task = find_assosiation_by_sock(cur_sock.fd)->task;
+                log_trace("THREAD %d: Processing next socket %d i %d task type %d", curthread_id(), cur_sock.fd, i, this_task->type);
                 if(cur_sock.revents & POLLERR){
-                    log_info("THREAD %d: REVENTS %d POLLERR %d", curthread_id(), cur_sock.revents, POLLERR);
-                    log_info("THREAD %d: Socket %d has an error pending! Aborting assosiated task!", curthread_id(), cur_sock.fd);
+                    log_warn("THREAD %d: REVENTS %d POLLERR %d", curthread_id(), cur_sock.revents, POLLERR);
+                    log_warn("THREAD %d: Socket %d has an error pending! Aborting assosiated task!", curthread_id(), cur_sock.fd);
                     this_task->abort_task(self, this_task);
                 }
                 else{
@@ -213,6 +216,7 @@ worker_thread* find_optimal_thread(){
         pthread_mutex_unlock(&pool.threads[i].nsocks_mutex);
     }
 #endif
+    log_trace("THREAD %d: Current optimal thread has id %d", curthread_id(), optimal_thread->id);
     return optimal_thread;
 }
 
@@ -314,6 +318,6 @@ int find_fd_index(worker_thread* thread, int fd){
 }
 
 bool contains_fd(worker_thread* thread, int fd){
-    (find_fd_index(thread, fd) == PR_NO_SUCH_FD_IN_THREAD) ? false : true;
+    return find_fd_index(thread, fd) != PR_NO_SUCH_FD_IN_THREAD;
 }
 

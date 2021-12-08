@@ -20,5 +20,6 @@
 #define PR_HOST_UNSUPPORTED_AF -14
 #define PR_HOST_UNREACHABLE -15
 
+#define PR_ENTRY_NO_NEW_DATA -16
 
 #endif

@@ -111,7 +111,7 @@ bool starts_with_name(char* name, char* string){
 }
 
 int urlcpy(char* query, char** url_addr){
-    query += 4;
+    while(*(query++) != ' ');
     int url_length = 0;
     while(*(query++) != ' ' && ++url_length);
     char* url = malloc(sizeof(char) * (url_length + 1));
@@ -119,7 +119,7 @@ int urlcpy(char* query, char** url_addr){
         log_trace("THREAD %d: Not enough memory to allocate place for url", curthread_id());
         return PR_NOT_ENOUGH_MEMORY;
     }
-    strncpy(url, query, url_length);
+    strncpy(url, query - url_length - 1, url_length);
     url[url_length] = '\0';
     *url_addr = url;
     return PR_SUCCESS;

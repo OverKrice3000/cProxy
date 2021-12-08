@@ -2,6 +2,7 @@
 #define F_GET_URL_TASK
 
 #include "tasks/task_types.h"
+#include "thread_pool/thread_pool.h"
 
 typedef struct get_url_task{
     int (*task_func)(worker_thread*, abstract_task* task);

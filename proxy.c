@@ -62,11 +62,20 @@ int main(int argc, char** argv){
         return -1;
     }
 
+    if(init_cache()){
+        destroy_logger();
+        destroy_assosiations();
+        destroy_thread_pool();
+        perror("Could not allocate memory for application");
+        return -1;
+    }
+
     int server_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
     if(server_socket == -1){
         destroy_logger();
         destroy_assosiations();
         destroy_thread_pool();
+        destroy_cache();
         perror("Could not create server socket");
         return -1;
     }
@@ -85,6 +94,7 @@ int main(int argc, char** argv){
         destroy_logger();
         destroy_assosiations();
         destroy_thread_pool();
+        destroy_cache();
         perror("Could not set server socket option");
         return -1;
     }
@@ -93,6 +103,7 @@ int main(int argc, char** argv){
         destroy_logger();
         destroy_assosiations();
         destroy_thread_pool();
+        destroy_cache();
         perror("Could not bind server socket");
         return -1;
     }
@@ -101,6 +112,7 @@ int main(int argc, char** argv){
         destroy_logger();
         destroy_assosiations();
         destroy_thread_pool();
+        destroy_cache();
         perror("Could not listen server socket");
         return -1;
     }
@@ -114,6 +126,7 @@ int main(int argc, char** argv){
             destroy_logger();
             destroy_assosiations();
             destroy_thread_pool();
+            destroy_cache();
             return -1;
         }
     }
@@ -127,13 +140,14 @@ int main(int argc, char** argv){
 
     assosiation ass = {
             .socket = server_socket,
-            .task = (abstract_task*)&task
+            .task = (abstract_task*)&task,
     };
     add_assosiation(ass);
 
     worker_thread_func(pool.threads + pool.size - 1);
     join_worker_threads();
 
+    destroy_cache();
     destroy_thread_pool();
     destroy_logger();
     destroy_assosiations();
