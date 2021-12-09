@@ -28,7 +28,7 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
         }
         else if(errno == ENOMEM){
             log_trace("THREAD %d: Not enough memory for resizing assosiations array", curthread_id());
-            return PR_NOT_ENOUGH_MEMORY;
+            return abort_get_url_task(thread, task);
         }
         else if(errno == EWOULDBLOCK){
             return PR_CONTINUE;
@@ -250,6 +250,8 @@ int abort_get_url_task(worker_thread* thread, abstract_task* task){
     free(dec_task->get_query);
     close(dec_task->client_socket);
     free(task);
+    if(errno == ENOMEM)
+        return PR_NOT_ENOUGH_MEMORY;
     return PR_SUCCESS;
 }
 

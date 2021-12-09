@@ -170,6 +170,27 @@ int add_server_task_client(server_task* server, struct client_task* client){
     return PR_SUCCESS;
 }
 
+int remove_client_task_from_server(server_task* server, struct client_task* client){
+#ifdef MULTITHREADED
+    pthread_mutex_lock(&server->clients_mutex);
+#endif
+    for(int i = 0; i < server->clients_size; i++){
+        if(server->clients[i] == client){
+            server->clients[i] = server->clients[--server->clients_size];
+#ifdef MULTITHREADED
+            pthread_mutex_unlock(&server->clients_mutex);
+#endif
+            log_trace("THREAD %d: Successfully removed client task with socket %d from server task with socket %d", curthread_id(), client->client_socket, server->server_socket);
+            return PR_SUCCESS;
+        }
+    }
+#ifdef MULTITHREADED
+    pthread_mutex_unlock(&server->clients_mutex);
+#endif
+    log_trace("THREAD %d: No client task with socket %d in server task with socket %d", curthread_id(), client->client_socket, server->server_socket);
+    return PR_NO_CLIENT_IN_SERVER;
+}
+
 int resize_server_task_clients(server_task* server){
     struct client_task** new_ptr = realloc(server->clients, sizeof(struct client_task*) * server->clients_capacity * 2);
     if(!new_ptr) {
@@ -189,8 +210,7 @@ int abort_server_task(worker_thread* thread, abstract_task* task){
     if(dec_task->clients_size == 0){
         log_trace("THREAD %d: Did not find any clients while aborting server task. Socket: %d", curthread_id(), dec_task->server_socket);
         free(dec_task->clients);
-        cache_entry* aentry = find_entry_by_key(dec_task->url);
-        if(aentry && !is_entry_finished(aentry)){
+        if(dec_task->entry && !is_entry_finished(dec_task->entry)){
             remove_entry_by_key(dec_task->url);
         }
     }
@@ -200,13 +220,17 @@ int abort_server_task(worker_thread* thread, abstract_task* task){
     close(dec_task->server_socket);
     free(dec_task->end_buf);
     free(dec_task->query);
-    free(dec_task->url);
+    if(!dec_task->entry){
+        free(dec_task->url);
+    }
     int ass_val = remove_assosiation_by_sock(dec_task->server_socket);
     assert(ass_val == PR_SUCCESS);
     int fd_val = remove_fd(thread, dec_task->server_socket);
     assert(fd_val == PR_SUCCESS);
     if(dec_task->clients_size == 0)
         free(task);
+    if(errno == ENOMEM)
+        return PR_NOT_ENOUGH_MEMORY;
     return PR_SUCCESS;
 }
 

@@ -21,5 +21,6 @@
 #define PR_HOST_UNREACHABLE -15
 
 #define PR_ENTRY_NO_NEW_DATA -16
+#define PR_NO_CLIENT_IN_SERVER -17
 
 #endif

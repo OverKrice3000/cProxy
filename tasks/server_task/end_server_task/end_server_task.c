@@ -11,6 +11,10 @@ int set_end_server_task(abstract_task* task){
 int do_end_server_task(worker_thread* thread, abstract_task* task){
     server_task* dec_task = (server_task*)task;
     dec_task->end_progress = 0;
+    if(dec_task->clients_size == 0){
+        log_info("THREAD %d: All clients of server %d aborted", curthread_id(), dec_task->server_socket);
+        return task->abort_task(thread, task);
+    }
     dec_task->end_clients_reading = dec_task->clients_size;
     ssize_t recv_val = recv(dec_task->server_socket, dec_task->end_buf, dec_task->end_capacity, 0);
     if(recv_val == -1){
@@ -30,7 +34,9 @@ int do_end_server_task(worker_thread* thread, abstract_task* task){
     log_info("THREAD %d: Received %d bytes from server. Socket: %d", curthread_id(), recv_val, dec_task->server_socket);
     dec_task->end_progress += recv_val;
     dec_task->progress += recv_val;
-    add_client_tasks_fd(thread, task);
+    int add_val = add_client_tasks_fd(thread, task);
+    if(add_val == PR_NOT_ENOUGH_MEMORY)
+        return task->abort_task(thread, task);
     remove_fd(thread, dec_task->server_socket);
     return PR_CONTINUE;
 }

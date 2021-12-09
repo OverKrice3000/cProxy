@@ -112,7 +112,6 @@ cache_entry* add_entry(char* key){
     pr_cache.entries[pr_cache.size]->capacity = PR_ENTRY_INIT_SIZE;
     pr_cache.entries[pr_cache.size]->size = 0;
     pr_cache.entries[pr_cache.size]->resize_cf = PR_START_RESIZE_COEF;
-    printf("ADING: %f\n\n\n", pr_cache.entries[pr_cache.size]->resize_cf);
     pr_cache.entries[pr_cache.size]->finished = false;
     cache_entry* new_entry = pr_cache.entries[pr_cache.size];
 #ifdef MULTITHREADED
@@ -179,7 +178,7 @@ cache_entry* find_entry_by_key(const char* const key){
     return NULL;
 }
 
-int append_entry(cache_entry* entry, char* data, int data_length){
+int append_entry(cache_entry* entry, char* data, size_t data_length){
 #ifdef MULTITHREADED
     pthread_rwlock_rdlock(&pr_cache.remove_lock);
 #endif
@@ -201,7 +200,7 @@ int append_entry(cache_entry* entry, char* data, int data_length){
         return PR_NOT_ENOUGH_MEMORY;
     }
     assert(entry->capacity - entry->size >= data_length);
-    strncpy(entry->value + entry->size, data, data_length);
+    memcpy(entry->value + entry->size, data, data_length);
 #ifdef MULTITHREADED
     pthread_mutex_lock(&entry->size_mutex);
 #endif
@@ -212,13 +211,13 @@ int append_entry(cache_entry* entry, char* data, int data_length){
 #endif
 }
 
-int send_entry_to_socket(cache_entry* entry, int socket, int progress){
+int send_entry_to_socket(cache_entry* entry, int socket, size_t progress){
 #ifdef MULTITHREADED
     pthread_rwlock_rdlock(&pr_cache.remove_lock);
     pthread_rwlock_rdlock(&entry->value_lock);
     pthread_mutex_lock(&entry->size_mutex);
 #endif
-    int cursize = entry->size;
+    size_t cursize = entry->size;
 #ifdef MULTITHREADED
     pthread_mutex_unlock(&entry->size_mutex);
 #endif
@@ -230,7 +229,7 @@ int send_entry_to_socket(cache_entry* entry, int socket, int progress){
 #endif
         return PR_ENTRY_NO_NEW_DATA;
     }
-    int to_send_len = min(PR_BYTES_FROM_CACHE_PER_ITERATION, cursize - progress);
+    size_t to_send_len = min(PR_BYTES_FROM_CACHE_PER_ITERATION, cursize - progress);
     char* to_send = entry->value + progress;
     int send_val = send(socket, to_send, to_send_len, MSG_NOSIGNAL);
 #ifdef MULTITHREADED
@@ -243,10 +242,6 @@ int send_entry_to_socket(cache_entry* entry, int socket, int progress){
 int remove_entry_by_key(const char* const key){
     int index_to_remove = find_entry_index_by_key(key);
     assert(index_to_remove != PR_NO_SUCH_CACHE_ENTRY);
-    if(index_to_remove == PR_NO_SUCH_CACHE_ENTRY){
-        log_fatal("THREAD %d: Could not find cache entry with key:\n%s", curthread_id(), key);
-        return PR_NO_SUCH_CACHE_ENTRY;
-    }
 #ifdef MULTITHREADED
     pthread_rwlock_wrlock(&pr_cache.remove_lock);
     pthread_mutex_destroy(&pr_cache.entries[index_to_remove]->size_mutex);
@@ -259,20 +254,21 @@ int remove_entry_by_key(const char* const key){
 #ifdef MULTITHREADED
     pthread_rwlock_unlock(&pr_cache.remove_lock);
 #endif
+    log_trace("THREAD %d: Successfully removed cache entry with key:\n%s", curthread_id(), key);
     return PR_SUCCESS;
 }
 
 int resize_entry(cache_entry* entry){
-    printf("RESIZING: %f\n\n\n", entry->resize_cf);
-    log_trace("THREAD %d: Resizing entry with capacity %d to capacity %f, key:\n%s", curthread_id(), entry->capacity, entry->capacity * entry->resize_cf, entry->key);
-    char* new_ptr = realloc(entry->value, sizeof(char) * (int)(entry->resize_cf * entry->capacity));
+    size_t resize_cap = (entry->capacity < ((double)SIZE_MAX / entry->resize_cf)) ? (size_t)(entry->resize_cf * (double)entry->capacity) : SIZE_MAX;
+    log_info("THREAD %d: Resizing entry with capacity %d to capacity %d, key:\n%s", curthread_id(), entry->capacity, resize_cap, entry->key);
+    char* new_ptr = realloc(entry->value, sizeof(char) * resize_cap);
     if(!new_ptr){
-        log_trace("THREAD %d: Not enough memory for resizing entry with key:\n%s", curthread_id(), entry->key);
+        log_info("THREAD %d: Not enough memory for resizing entry with key:\n%s", curthread_id(), entry->key);
         return PR_NOT_ENOUGH_MEMORY;
     }
-    log_trace("THREAD %d: Successfully resized entry with key:\n%s", curthread_id(), entry->key);
+    log_info("THREAD %d: Successfully resized entry with key:\n%s", curthread_id(), entry->key);
     entry->value = new_ptr;
-    entry->capacity *= entry->resize_cf;
+    entry->capacity = resize_cap;
     if(entry->resize_cf <= PR_MIN_RESIZE_COEF)
         entry->resize_cf = PR_MIN_RESIZE_COEF;
     else

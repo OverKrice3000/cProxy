@@ -4,6 +4,7 @@
 #include "cache/cache.h"
 #include "tasks/task_types.h"
 #include "thread_pool/thread_pool.h"
+#include <sys/types.h>
 #ifdef MULTITHREADED
     #include <pthread.h>
 #endif
@@ -15,7 +16,7 @@ typedef struct server_task{
     int (*abort_task) (worker_thread*, struct abstract_task*);
     task_type type;
     int server_socket;
-    int progress;
+    size_t progress;
     bool aborted;
     char* end_buf;
     int end_progress;
@@ -37,8 +38,10 @@ int init_server_task(server_task* task, char* query);
 int free_server_task(server_task* task);
 int abort_server_task(worker_thread* thread, abstract_task* task);
 int add_server_task_client(server_task* server, struct client_task* client);
+int remove_client_task_from_server(server_task* server, struct client_task* client);
 int resize_server_task_clients(server_task* server);
 int add_client_tasks_fd(worker_thread* thread, abstract_task* task);
+
 
 bool is_server_aborted(server_task* task);
 void set_server_aborted(server_task* task);

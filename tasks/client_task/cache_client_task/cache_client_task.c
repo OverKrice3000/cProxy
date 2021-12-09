@@ -76,6 +76,6 @@ int do_cache_client_task(worker_thread* thread, abstract_task* task){
 
 
 int client_switch_to_end_mode(worker_thread* thread, abstract_task* task){
-    set_cache_client_task(task);
+    set_end_client_task(task);
     return PR_SUCCESS;
 }

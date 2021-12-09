@@ -4,6 +4,7 @@
 #include "cache/cache.h"
 #include "tasks/task_types.h"
 #include "thread_pool/thread_pool.h"
+#include <sys/types.h>
 
 #define NOT_EXECUTED 255
 
@@ -13,7 +14,7 @@ typedef struct client_task{
     task_type type;
     worker_thread* last_exec;
     int client_socket;
-    int progress;
+    size_t progress;
     char* url;
     server_task* server;
     cache_entry* entry;

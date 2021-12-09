@@ -65,6 +65,10 @@ void* worker_thread_func(void* arg){
                 }
                 else{
                     int task_val = this_task->task_func(self, this_task);
+                    if(task_val == PR_NOT_ENOUGH_MEMORY){
+                        log_debug("THREAD %d: Not enough memory! Switching to end-to-end mode", curthread_id());
+                        set_end_to_end();
+                    }
                 }
             }
         }

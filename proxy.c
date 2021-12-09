@@ -26,7 +26,7 @@ bool end_to_end;
 bool finished;
 
 int main(int argc, char** argv){
-    end_to_end = true;
+    end_to_end = false;
     finished = false;
 
     int thread_pool_capacity = 1;
@@ -160,4 +160,12 @@ bool is_end_to_end(){
 
 bool is_finished(){
     return finished;
+}
+
+void set_end_to_end(){
+    end_to_end = true;
+}
+
+void set_finished(){
+    finished = true;
 }

@@ -12,9 +12,9 @@
 #define PR_CLIENTS_INIT_CAP 16
 #define PR_ASSOSIATIONS_INIT_CAP 16
 #define PR_POLLFD_INIT_CAPACITY 16
-#define PR_END_SERVER_BUFSIZ 8192
 #define PR_SERVER_CLIENTS_INIT_CAP 16
 #define PR_GETHOST_BUFSIZ 8192
+#define PR_END_SERVER_BUFSIZ 8192
 #define PR_BYTES_FROM_CACHE_PER_ITERATION 8192
 
 extern bool end_to_end;
@@ -22,5 +22,8 @@ extern bool finished;
 
 bool is_end_to_end();
 bool is_finished();
+
+void set_end_to_end();
+void set_finished();
 
 #endif
