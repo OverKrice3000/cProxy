@@ -183,7 +183,7 @@ int append_entry(cache_entry* entry, char* data, size_t data_length){
     pthread_rwlock_rdlock(&pr_cache.remove_lock);
 #endif
     int return_code = PR_SUCCESS;
-    if(entry->capacity - entry->size < data_length){
+    while(entry->capacity - entry->size < data_length){
 #ifdef MULTITHREADED
         pthread_rwlock_wrlock(&entry->value_lock);
 #endif
@@ -191,13 +191,10 @@ int append_entry(cache_entry* entry, char* data, size_t data_length){
 #ifdef MULTITHREADED
         pthread_rwlock_unlock(&entry->value_lock);
 #endif
-    }
-    if(return_code == PR_NOT_ENOUGH_MEMORY){
-#ifdef MULTITHREADED
-        pthread_rwlock_unlock(&pr_cache.remove_lock);
-#endif
-        log_trace("THREAD %d: Could not append data of length %d to entry with key:\n%s", curthread_id(), data_length, entry->key);
-        return PR_NOT_ENOUGH_MEMORY;
+        if(return_code == PR_NOT_ENOUGH_MEMORY){
+            log_trace("THREAD %d: Could not append data of length %d to entry with key:\n%s", curthread_id(), data_length, entry->key);
+            return PR_NOT_ENOUGH_MEMORY;
+        }
     }
     assert(entry->capacity - entry->size >= data_length);
     memcpy(entry->value + entry->size, data, data_length);
@@ -209,6 +206,44 @@ int append_entry(cache_entry* entry, char* data, size_t data_length){
     pthread_mutex_unlock(&entry->size_mutex);
     pthread_rwlock_unlock(&pr_cache.remove_lock);
 #endif
+    return PR_SUCCESS;
+}
+
+int recv_entry_from_socket(cache_entry* entry, int socket){
+#ifdef MULTITHREADED
+    pthread_rwlock_rdlock(&pr_cache.remove_lock);
+#endif
+    int return_code = PR_SUCCESS;
+    if(entry->capacity - entry->size == 0){ // MAYBE < SOME VALUE
+#ifdef MULTITHREADED
+        pthread_rwlock_wrlock(&entry->value_lock);
+#endif
+        return_code = resize_entry(entry);
+#ifdef MULTITHREADED
+        pthread_rwlock_unlock(&entry->value_lock);
+#endif
+        if(return_code == PR_NOT_ENOUGH_MEMORY){
+            log_trace("THREAD %d: Could not append data of length %d to entry with key:\n%s", curthread_id(), data_length, entry->key);
+            return PR_NOT_ENOUGH_MEMORY;
+        }
+    }
+    int to_recv = min(PR_BYTES_FROM_CACHE_PER_ITERATION, entry->capacity - entry->size);
+    int recv_val = recv(socket, entry->value + entry->size, to_recv, 0);
+    if(recv_val <= 0){
+#ifdef MULTITHREADED
+        pthread_rwlock_unlock(&pr_cache.remove_lock);
+#endif
+        return recv_val;
+    }
+#ifdef MULTITHREADED
+    pthread_mutex_lock(&entry->size_mutex);
+#endif
+    entry->size += recv_val;
+#ifdef MULTITHREADED
+    pthread_mutex_unlock(&entry->size_mutex);
+    pthread_rwlock_unlock(&pr_cache.remove_lock);
+#endif
+    return recv_val;
 }
 
 int send_entry_to_socket(cache_entry* entry, int socket, size_t progress){
