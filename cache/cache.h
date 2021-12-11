@@ -37,6 +37,7 @@ int init_cache();
 cache_entry* add_entry(char* key);
 cache_entry* find_entry_by_key(const char* const key);
 int append_entry(cache_entry* entry, char* data, size_t data_length);
+int recv_entry_from_socket(cache_entry* entry, int socket);
 int send_entry_to_socket(cache_entry* entry, int socket, size_t progress);
 int remove_entry_by_key(const char* const key);
 int resize_entry(cache_entry* entry);

@@ -214,7 +214,7 @@ int recv_entry_from_socket(cache_entry* entry, int socket){
     pthread_rwlock_rdlock(&pr_cache.remove_lock);
 #endif
     int return_code = PR_SUCCESS;
-    if(entry->capacity - entry->size == 0){ // MAYBE < SOME VALUE
+    if(entry->capacity - entry->size == 0){
 #ifdef MULTITHREADED
         pthread_rwlock_wrlock(&entry->value_lock);
 #endif
@@ -223,7 +223,7 @@ int recv_entry_from_socket(cache_entry* entry, int socket){
         pthread_rwlock_unlock(&entry->value_lock);
 #endif
         if(return_code == PR_NOT_ENOUGH_MEMORY){
-            log_trace("THREAD %d: Could not append data of length %d to entry with key:\n%s", curthread_id(), data_length, entry->key);
+            log_trace("THREAD %d: Could not receive data from socket %d for entry with key:\n%s", curthread_id(), socket, entry->key);
             return PR_NOT_ENOUGH_MEMORY;
         }
     }

@@ -28,7 +28,11 @@ int do_cache_server_task(worker_thread* thread, abstract_task* task){
         }
         return PR_CONTINUE;
     }
-    ssize_t recv_val = recv(dec_task->server_socket, dec_task->end_buf + dec_task->end_progress, dec_task->end_capacity - dec_task->end_progress, 0);
+    ssize_t recv_val;
+    if(!dec_task->entry)
+        recv_val = recv(dec_task->server_socket, dec_task->end_buf + dec_task->end_progress, dec_task->end_capacity - dec_task->end_progress, 0);
+    else
+        recv_val = recv_entry_from_socket(dec_task->entry, dec_task->server_socket);
     if(recv_val == -1){
         if(errno == EWOULDBLOCK)
             return PR_CONTINUE;
@@ -38,6 +42,10 @@ int do_cache_server_task(worker_thread* thread, abstract_task* task){
             log_info("THREAD %d: Error occured while receiving data from socket %d", curthread_id(), dec_task->server_socket);
             return task->abort_task(thread, task);
         }
+    }
+    else if(recv_val == PR_NOT_ENOUGH_MEMORY){
+        log_info("THREAD %d: Not enough memory to receive data from socket %d", curthread_id(), dec_task->server_socket);
+        return task->abort_task(thread, task);
     }
     else if(!recv_val){
         log_info("THREAD %d: Finished reading from server. Socket: %d", curthread_id(), recv_val, dec_task->server_socket);
@@ -72,12 +80,11 @@ int do_cache_server_task(worker_thread* thread, abstract_task* task){
             return PR_NOT_ENOUGH_MEMORY;
         }
         dec_task->entry = addentr_val;
+        int append_val = append_entry(dec_task->entry, dec_task->end_buf, dec_task->end_progress);
+        if(append_val == PR_NOT_ENOUGH_MEMORY){
+            return PR_NOT_ENOUGH_MEMORY;
+        }
     }
-    int append_val = append_entry(dec_task->entry, dec_task->end_buf, dec_task->end_progress);
-    if(append_val == PR_NOT_ENOUGH_MEMORY){
-        return PR_NOT_ENOUGH_MEMORY;
-    }
-
     dec_task->end_progress = 0;
     add_client_tasks_fd(thread, task);
     return PR_CONTINUE;
