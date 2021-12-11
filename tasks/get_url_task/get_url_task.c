@@ -46,6 +46,8 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
     log_info("THREAD %d: GET_URL_TASK: Received %d bytes %d bytes total from client", curthread_id(), recv_val, dec_task->progress);
     int parse_val = parse_query(&dec_task->get_query, &dec_task->progress);
     if(parse_val == PR_METHOD_NOT_SUPPORTED){
+        char* mna = "HTTP/1.0 501 Not Implemented\n\n\0";
+        send(dec_task->client_socket, mna, strlen(mna), MSG_NOSIGNAL);
         log_info("THREAD %d: Received an unsupported method from client with socket %d", curthread_id(), dec_task->client_socket);
         return abort_get_url_task(thread, task);
     }

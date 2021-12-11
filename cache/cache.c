@@ -340,6 +340,15 @@ bool contains_finished_entry(const char* const key){
 }
 
 int destroy_cache(){
+    for(int i = 0; i < pr_cache.size; i++){
+        free(pr_cache.entries[i]->key);
+        free(pr_cache.entries[i]->value);
+#ifdef MULTITHREADED
+        pthread_mutex_destroy(&pr_cache.entries[i]->size_mutex);
+        pthread_rwlock_destroy(&pr_cache.entries[i]->value_lock);
+#endif
+        free(pr_cache.entries[i]);
+    }
     free(pr_cache.entries);
 #ifdef MULTITHREADED
     pthread_mutex_destroy(&pr_cache.add_mutex);

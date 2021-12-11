@@ -30,8 +30,14 @@ int parse_query(char** query_init, int* query_length){
     if(progress < 8 + NEWLINE_LENGTH)
         return PR_QUERY_UNFINISHED;
     if(!starts_with_name("HTTP/1.0\0", query)){
-        log_info("THREAD %d: Received an unsupported version %.8s", curthread_id(), query);
-        return PR_VERSION_NOT_SUPPORTED;
+        if(starts_with_name("HTTP/1.1\0", query)){
+            log_info("THREAD %d: Received an HTTP/1.1 version. Changing to HTTP/1.0", curthread_id());
+            query[7] = '0';
+        }
+        else{
+            log_info("THREAD %d: Received an unsupported version %.8s", curthread_id(), query);
+            return PR_VERSION_NOT_SUPPORTED;
+        }
     }
     progress -= 8;
     query += 8;

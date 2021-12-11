@@ -28,6 +28,7 @@ bool finished;
 int main(int argc, char** argv){
     end_to_end = false;
     finished = false;
+    sigset(SIGINT, set_finished);
 
     int thread_pool_capacity = 1;
 #ifdef MULTITHREADED
@@ -45,7 +46,7 @@ int main(int argc, char** argv){
         perror("Could not allocate memory for application");
         return -1;
     }
-    log_set_level(LOG_FATAL);
+    log_set_level(LOG_TRACE);
 #ifdef MULTITHREADED
     log_set_lock(logger_lock_function, NULL);
 #endif
@@ -147,6 +148,25 @@ int main(int argc, char** argv){
     worker_thread_func(pool.threads + pool.size - 1);
     join_worker_threads();
 
+    log_info("THREAD %d: Joined other threads", curthread_id());
+
+    bool tasks_left = true;
+    while(tasks_left){
+        for(int i = 0; i < pool.size; i++){
+            for(int j = pool.threads[i].nsocks - 1; j >= 0; j--){
+                abstract_task* task = find_assosiation_by_sock(pool.threads[i].socks[j].fd)->task;
+                task->abort_task(pool.threads + i, task);
+            }
+        }
+        tasks_left = false;
+        for(int i = 0; i < pool.size; i++) {
+            if(pool.threads[i].nsocks != 0){
+                tasks_left = true;
+                break;
+            }
+        }
+    }
+
     destroy_cache();
     destroy_thread_pool();
     destroy_logger();
@@ -166,6 +186,6 @@ void set_end_to_end(){
     end_to_end = true;
 }
 
-void set_finished(){
+void set_finished(int signal){
     finished = true;
 }

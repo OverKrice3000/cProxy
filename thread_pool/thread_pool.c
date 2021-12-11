@@ -28,8 +28,14 @@ void* worker_thread_func(void* arg){
             pthread_mutex_unlock(&self->nsocks_mutex);
             log_info("THREAD %d: No tasks found. I sleep.", curthread_id());
             pthread_cond_wait(&self->condvar, &self->stop_mutex);
+            if(is_finished()){
+                pthread_mutex_unlock(&self->stop_mutex);
+                break;
+            }
             pthread_mutex_lock(&self->nsocks_mutex);
         }
+        if(is_finished())
+            break;
 #endif
         int iter_nsocks = self->nsocks;
 #ifdef MULTITHREADED
@@ -39,6 +45,13 @@ void* worker_thread_func(void* arg){
 #endif
         log_trace("THREAD %d: New iteration has %d fds", curthread_id(), iter_nsocks);
         int poll_val = poll(self->socks, iter_nsocks, -1);
+        if(is_finished()){
+#ifdef MULTITHREADED
+            pthread_mutex_unlock(&self->poll_mutex);
+#endif
+            break;
+        }
+
 #ifdef MULTITHREADED
         pthread_mutex_unlock(&self->poll_mutex);
 #endif
@@ -70,10 +83,19 @@ void* worker_thread_func(void* arg){
                         set_end_to_end();
                     }
                 }
+                if(is_finished())
+                    break;
             }
         }
+        if(is_finished())
+            break;
     }
-    return 0;
+#ifdef MULTITHREADED
+    for(int i = 0; i < pool.size; i++){
+        pthread_cond_signal(&pool.threads[i].condvar);
+    }
+#endif
+    return NULL;
 }
 
 int init_thread_pool(int capacity){
