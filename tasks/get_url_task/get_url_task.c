@@ -63,6 +63,7 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
         return PR_CONTINUE;
     }
     dec_task->get_query[dec_task->progress] = '\0';
+    set_conn_close(dec_task->get_query);
     log_info("THREAD %d: Successfully parsed get query from client with socket %d. Query :\n%s", curthread_id(), dec_task->client_socket, dec_task->get_query);
     int rm_ass_val = remove_assosiation_by_sock(dec_task->client_socket);
     assert(rm_ass_val == PR_SUCCESS);
@@ -101,12 +102,12 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
         log_trace("THREAD %d: Adding new cache client. Socket : %d", curthread_id(), dec_task->client_socket);
         server_task* acc_server = NULL;
         for(int i = 0; i < task_assosiations.size; i++){
-            abstract_task* next_task = task_assosiations.assosiations[i].task;
+            abstract_task* next_task = task_assosiations.assosiations[i]->task;
             if(next_task->type == CACHE_CLIENT_TASK){
                 client_task* dec_client_task = (client_task*)next_task;
-                assert(dec_client_task->server);
                 if(!strcmp(client->url, dec_client_task->url) && !dec_client_task->server->aborted){
                     assert(!acc_server || acc_server == dec_client_task->server);
+                    assert(dec_client_task->server);
                     log_trace("THREAD %d: Found UP server task with the same url. Socket : %d. Url :\n%s", curthread_id(), dec_client_task->server->server_socket, client->url);
                     mode |= SERVER_UP;
                     acc_server = dec_client_task->server;
@@ -150,11 +151,7 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
         add_server_task_client(server, client);
     }
 
-    assosiation client_ass = {
-            .socket = client->client_socket,
-            .task = (abstract_task*)client
-    };
-    int ass_val = add_assosiation(client_ass);
+    int ass_val = add_assosiation(client->client_socket, (abstract_task*)client);
     if(ass_val == PR_NOT_ENOUGH_MEMORY){
         free(client);
         free(client->url);
@@ -166,9 +163,8 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
         return abort_get_url_task(thread, task);
     }
 
-    worker_thread* opt_client;
-    if(client->type == CACHE_CLIENT_TASK){
-        opt_client = find_optimal_thread();
+    if(mode == SERVER_FINISHED){
+        worker_thread* opt_client = find_optimal_thread();
 #ifdef MULTITHREADED
         pthread_mutex_lock(&opt_client->stop_mutex);
 #endif
@@ -176,32 +172,30 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
         if(fd_val == PR_NOT_ENOUGH_MEMORY){
             free(client);
             free(client->url);
-            if(server){
-                free_server_task(server);
-                free(server);
-            }
+            free_server_task(server);
+            free(server);
             remove_assosiation_by_sock(client->client_socket);
-            log_trace("THREAD %d: Not enough memory for adding client fd %d", curthread_id(), client->client_socket);
+#ifdef MULTITHREADED
+            pthread_mutex_unlock(&opt_client->stop_mutex);
+#endif
+            log_trace("THREAD %d: Not enough memory for adding server fd %d", curthread_id(), server->server_socket);
             return abort_get_url_task(thread, task);
         }
-        client->last_exec = opt_client;
+#ifdef MULTITHREADED
+        pthread_cond_signal(&opt_client->condvar);
+        pthread_mutex_unlock(&opt_client->stop_mutex);
+#endif
+        free(dec_task->get_query);
     }
-
-    if(server){
+    else if(mode == NO_SERVER){
         worker_thread* opt_server = find_optimal_thread();
-        assosiation server_ass = {
-                .socket = server->server_socket,
-                .task = (abstract_task*)server
-        };
-        ass_val = add_assosiation(server_ass);
+        ass_val = add_assosiation(server->server_socket, (abstract_task*)server);
         if(ass_val == PR_NOT_ENOUGH_MEMORY){
             free(client);
             free(client->url);
             free_server_task(server);
             free(server);
             remove_assosiation_by_sock(client->client_socket);
-            if(client->type == CACHE_CLIENT_TASK)
-                remove_fd(opt_client, client->client_socket);
             log_trace("THREAD %d: Not enough memory for adding assosiation with server socket %d", curthread_id(), server->server_socket);
             return abort_get_url_task(thread, task);
         }
@@ -215,24 +209,16 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
             free_server_task(server);
             free(server);
             remove_assosiation_by_sock(client->client_socket);
-            if(client->type == CACHE_CLIENT_TASK)
-                remove_fd(opt_client, client->client_socket);
             remove_assosiation_by_sock(server->server_socket);
+#ifdef MULTITHREADED
+            pthread_mutex_unlock(&opt_server->stop_mutex);
+#endif
             log_trace("THREAD %d: Not enough memory for adding server fd %d", curthread_id(), server->server_socket);
             return abort_get_url_task(thread, task);
         }
 #ifdef MULTITHREADED
         pthread_cond_signal(&opt_server->condvar);
         pthread_mutex_unlock(&opt_server->stop_mutex);
-#endif
-    }
-    else{
-        free(dec_task->get_query);
-    }
-    if(client->type == CACHE_CLIENT_TASK) {
-#ifdef MULTITHREADED
-        pthread_cond_signal(&opt_client->condvar);
-        pthread_mutex_unlock(&opt_client->stop_mutex);
 #endif
     }
 

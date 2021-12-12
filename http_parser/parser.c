@@ -95,7 +95,8 @@ int find_header_by_name(char* query, char* name, char** value, int* val_length){
             query++;
             *value = query;
             while(*(query++) != '\n');
-            *val_length = query - NEWLINE_LENGTH - *value;
+            if(val_length)
+                *val_length = query - NEWLINE_LENGTH - *value;
             return PR_SUCCESS;
         }
         while(*(query++) != '\n');
@@ -131,3 +132,19 @@ int urlcpy(char* query, char** url_addr){
     return PR_SUCCESS;
 }
 
+int set_conn_close(char* query){
+    char* conn_val;
+    int find_val = find_header_by_name(query, "Connection\0", &conn_val, NULL);
+    if(find_val == PR_NO_SUCH_HEADER)
+        return PR_SUCCESS;
+    if(starts_with_name("close\0", conn_val))
+        return PR_SUCCESS;
+    if(starts_with_name("keep-alive\0", conn_val)){
+        strcpy(conn_val, "close\0");
+        conn_val += 5;
+        do{
+            conn_val[0] = conn_val[5];
+        } while((conn_val++)[5]);
+    }
+    return PR_SUCCESS;
+}

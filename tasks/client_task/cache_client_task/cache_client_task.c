@@ -100,7 +100,7 @@ int do_cache_client_task(worker_thread* thread, abstract_task* task){
         }
     }
     dec_task->progress += send_val;
-    log_info("THREAD %d: Send %d bytes to client. Socket: %d", curthread_id(), send_val, dec_task->client_socket);
+    log_debug("THREAD %d: Send %d bytes to client. Socket: %d", curthread_id(), send_val, dec_task->client_socket);
 #ifdef MULTITHREADED
     pthread_mutex_unlock(&temp_mutex);
 #endif

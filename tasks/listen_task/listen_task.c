@@ -39,11 +39,7 @@ int do_listen_task(worker_thread* thread, abstract_task* task){
     }
     new_url_task->client_socket = new_sock;
 
-    assosiation new_assosiation = {
-            .socket = new_sock,
-            .task = (abstract_task*) new_url_task
-    };
-    int ass_val = add_assosiation(new_assosiation);
+    int ass_val = add_assosiation(new_sock, (abstract_task*) new_url_task);
     if(ass_val == PR_NOT_ENOUGH_MEMORY){
         close(new_sock);
         free_get_url_task(new_url_task);
@@ -53,17 +49,24 @@ int do_listen_task(worker_thread* thread, abstract_task* task){
     }
 
     worker_thread* opt = find_optimal_thread();
+#ifdef MULTITHREADED
+    pthread_mutex_lock(&opt->stop_mutex);
+#endif
     int fd_val = add_fd(opt, new_sock, POLLIN);
     if(fd_val == PR_NOT_ENOUGH_MEMORY){
         close(new_sock);
         free_get_url_task(new_url_task);
         free(new_url_task);
         remove_assosiation_by_sock(new_sock);
+#ifdef MULTITHREADED
+        pthread_mutex_unlock(&opt->stop_mutex);
+#endif
         log_trace("THREAD %d: Not enough memory to add fd to thread %d!", curthread_id(), opt->id);
         return PR_NOT_ENOUGH_MEMORY;
     }
 #ifdef MULTITHREADED
     pthread_cond_signal(&opt->condvar);
+    pthread_mutex_unlock(&opt->stop_mutex);
 #endif
 
     log_info("THREAD %d: Accepted new connection. Socket : %d.", curthread_id(), new_sock);

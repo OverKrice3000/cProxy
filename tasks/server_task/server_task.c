@@ -247,10 +247,22 @@ int add_client_tasks_fd(worker_thread* thread, abstract_task* task){
         if(dec_task->clients[i]->last_exec && contains_fd(dec_task->clients[i]->last_exec, dec_task->clients[i]->client_socket))
             continue;
         worker_thread* opt = find_optimal_thread();
+#ifdef MULTITHREADED
+      pthread_mutex_lock(&opt->stop_mutex);
+#endif
         int fd_val = add_fd(opt, dec_task->clients[i]->client_socket, POLLOUT);
         dec_task->clients[i]->last_exec = opt;
-        if(fd_val == PR_NOT_ENOUGH_MEMORY)
+        if(fd_val == PR_NOT_ENOUGH_MEMORY){
+#ifdef MULTITHREADED
+            pthread_mutex_unlock(&opt->stop_mutex);
+#endif
             return PR_NOT_ENOUGH_MEMORY;
+        }
+
+#ifdef MULTITHREADED
+      pthread_cond_signal(&opt->condvar);
+      pthread_mutex_unlock(&opt->stop_mutex);
+#endif
     }
     return PR_SUCCESS;
 }

@@ -11,7 +11,7 @@
 #endif
 
 int init_assosiations(){
-    task_assosiations.assosiations = malloc(sizeof(assosiation) * PR_ASSOSIATIONS_INIT_CAP);
+    task_assosiations.assosiations = malloc(sizeof(assosiation*) * PR_ASSOSIATIONS_INIT_CAP);
     if(task_assosiations.assosiations){
         task_assosiations.capacity = PR_ASSOSIATIONS_INIT_CAP;
         task_assosiations.size = 0;
@@ -24,7 +24,7 @@ int init_assosiations(){
     }
 }
 
-int add_assosiation(assosiation new_assosiation){
+int add_assosiation(int socket, abstract_task* task){
 #ifdef MULTITHREADED
     pthread_mutex_lock(&task_assosiations.mutex);
 #endif
@@ -35,14 +35,24 @@ int add_assosiation(assosiation new_assosiation){
 #ifdef MULTITHREADED
         pthread_mutex_unlock(&task_assosiations.mutex);
 #endif
-        log_trace("THREAD %d: Could not add assosiation with socket : %d", curthread_id(), new_assosiation.socket);
+        log_trace("THREAD %d: Could not add assosiation with socket : %d", curthread_id(), socket);
         return PR_NOT_ENOUGH_MEMORY;
     }
+    assosiation* new_assosiation = malloc(sizeof(assosiation));
+    if(!new_assosiation){
+#ifdef MULTITHREADED
+        pthread_mutex_unlock(&task_assosiations.mutex);
+#endif
+        log_trace("THREAD %d: Could not allocate memory for new assosiation with socket : %d", curthread_id(), socket);
+        return PR_NOT_ENOUGH_MEMORY;
+    }
+    new_assosiation->socket = socket;
+    new_assosiation->task = task;
     task_assosiations.assosiations[task_assosiations.size++] = new_assosiation;
 #ifdef MULTITHREADED
     pthread_mutex_unlock(&task_assosiations.mutex);
 #endif
-    log_trace("THREAD %d: Successfully added assosiation with socket : %d", curthread_id(), new_assosiation.socket);
+    log_trace("THREAD %d: Successfully added assosiation with socket : %d", curthread_id(), socket);
     return PR_SUCCESS;
 }
 
@@ -52,7 +62,8 @@ int remove_assosiation_by_sock(int sock){
 #endif
     bool removed = false;
     for(int i = 0; i < task_assosiations.size; i++){
-        if(task_assosiations.assosiations[i].socket == sock){
+        if(task_assosiations.assosiations[i]->socket == sock){
+            free(task_assosiations.assosiations[i]);
             task_assosiations.assosiations[i] = task_assosiations.assosiations[--task_assosiations.size];
             removed = true;
             break;
@@ -70,12 +81,13 @@ assosiation* find_assosiation_by_sock(int sock){
     pthread_mutex_lock(&task_assosiations.mutex);
 #endif
     for(int i = 0; i < task_assosiations.size; i++){
-        if(task_assosiations.assosiations[i].socket == sock){
+        if(task_assosiations.assosiations[i]->socket == sock){
+            assosiation* found = task_assosiations.assosiations[i];
 #ifdef MULTITHREADED
             pthread_mutex_unlock(&task_assosiations.mutex);
 #endif
             log_trace("THREAD %d: Found assosiation with such socket : %d", curthread_id(), sock);
-            return task_assosiations.assosiations + i;
+            return found;
         }
     }
 #ifdef MULTITHREADED
@@ -86,7 +98,7 @@ assosiation* find_assosiation_by_sock(int sock){
 }
 
 int resize_assosiations(){
-    assosiation* new_ptr = realloc(task_assosiations.assosiations, sizeof(assosiation) * task_assosiations.capacity * 2);
+    assosiation** new_ptr = realloc(task_assosiations.assosiations, sizeof(assosiation*) * task_assosiations.capacity * 2);
     if(new_ptr) {
         task_assosiations.assosiations = new_ptr;
         task_assosiations.capacity *= 2;
@@ -100,6 +112,9 @@ int resize_assosiations(){
 }
 
 int destroy_assosiations(){
+    for(int i = 0; i < task_assosiations.size; i++){
+        free(task_assosiations.assosiations[i]);
+    }
     free(task_assosiations.assosiations);
     return PR_SUCCESS;
 }

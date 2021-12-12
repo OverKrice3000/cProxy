@@ -13,7 +13,7 @@ typedef struct sock_task_assosiation{
 } assosiation;
 
 typedef struct sock_task_assosiations{
-    assosiation* assosiations;
+    assosiation** assosiations;
     int capacity;
     int size;
 #ifdef MULTITHREADED
@@ -24,7 +24,7 @@ typedef struct sock_task_assosiations{
 extern assosiations task_assosiations;
 
 int init_assosiations();
-int add_assosiation(assosiation new_assosiation);
+int add_assosiation(int socket, abstract_task* task);
 int remove_assosiation_by_sock(int sock);
 assosiation* find_assosiation_by_sock(int sock);
 int resize_assosiations();

@@ -43,7 +43,7 @@ int do_end_server_task(worker_thread* thread, abstract_task* task){
         log_info("THREAD %d: Finished reading from server. Socket: %d", curthread_id(), dec_task->server_socket);
         return task->abort_task(thread, task);
     }
-    log_info("THREAD %d: Received %d bytes from server. Socket: %d", curthread_id(), recv_val, dec_task->server_socket);
+    log_debug("THREAD %d: Received %d bytes from server. Socket: %d", curthread_id(), recv_val, dec_task->server_socket);
     dec_task->end_progress += recv_val;
     dec_task->progress += recv_val;
     int add_val = add_client_tasks_fd(thread, task);

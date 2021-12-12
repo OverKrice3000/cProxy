@@ -46,21 +46,28 @@ int do_end_client_task(worker_thread* thread, abstract_task* task){
         log_info("THREAD %d: Client %d closed connection", curthread_id(), dec_task->client_socket);
         return task->abort_task(thread, task);
     }
-    log_info("THREAD %d: Send %d bytes to client. Socket: %d", curthread_id(), send_val, dec_task->client_socket);
+    log_debug("THREAD %d: Send %d bytes to client. Socket: %d", curthread_id(), send_val, dec_task->client_socket);
     dec_task->progress += send_val;
     to_read -= send_val;
     if(!to_read){
         dec_task->server->end_clients_reading--;
         if(!dec_task->server->end_clients_reading){
             worker_thread* opt = find_optimal_thread();
+#ifdef MULTITHREADED
+            pthread_mutex_lock(&opt->stop_mutex);
+#endif
             int fd_val = add_fd(opt, dec_task->server->server_socket, POLLIN);
             if(fd_val == PR_NOT_ENOUGH_MEMORY){
 #ifdef MULTITHREADED
                 pthread_mutex_unlock(&temp_mutex);
+                pthread_mutex_unlock(&opt->stop_mutex);
 #endif
                 return task->abort_task(thread, task);
             }
-
+#ifdef MULTITHREADED
+            pthread_cond_signal(&opt->condvar);
+            pthread_mutex_unlock(&opt->stop_mutex);
+#endif
         }
         remove_fd(thread, dec_task->client_socket);
     }

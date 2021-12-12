@@ -31,7 +31,7 @@ bool finished;
 
 int main(int argc, char** argv){
 #ifdef MULTITHREADED
-    pthread_mutex_init(&temp_mutex);
+    pthread_mutex_init(&temp_mutex, NULL);
 #endif
     end_to_end = false;
     finished = false;
@@ -146,11 +146,7 @@ int main(int argc, char** argv){
     task.server_socket = server_socket;
     add_fd(pool.threads + pool.size - 1, server_socket, POLLIN);
 
-    assosiation ass = {
-            .socket = server_socket,
-            .task = (abstract_task*)&task,
-    };
-    add_assosiation(ass);
+    add_assosiation(server_socket, (abstract_task*)&task);
 
     worker_thread_func(pool.threads + pool.size - 1);
     join_worker_threads();

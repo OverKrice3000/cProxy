@@ -37,7 +37,7 @@ int do_connect_task(worker_thread* thread, abstract_task* task){
         return task->abort_task(thread, task);
     }
     dec_task->progress += send_val;
-    log_info("THREAD %d: Sent %d query bytes to server. Socket : %d", curthread_id(), send_val, dec_task->server_socket);
+    log_debug("THREAD %d: Sent %d query bytes to server. Socket : %d", curthread_id(), send_val, dec_task->server_socket);
     if(dec_task->progress != dec_task->query_length){
 #ifdef MULTITHREADED
         pthread_mutex_unlock(&temp_mutex);

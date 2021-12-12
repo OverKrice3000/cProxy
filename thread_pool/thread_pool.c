@@ -25,8 +25,8 @@ void* worker_thread_func(void* arg){
         pthread_mutex_lock(&self->stop_mutex);
         pthread_mutex_lock(&self->nsocks_mutex);
         while(self->nsocks <= 0){
-            pthread_mutex_unlock(&self->nsocks_mutex);
             log_info("THREAD %d: No tasks found. I sleep.", curthread_id());
+            pthread_mutex_unlock(&self->nsocks_mutex);
             pthread_cond_wait(&self->condvar, &self->stop_mutex);
             if(is_finished()){
                 pthread_mutex_unlock(&self->stop_mutex);
@@ -69,7 +69,9 @@ void* worker_thread_func(void* arg){
             pthread_mutex_unlock(&self->nsocks_mutex);
 #endif
             if(cur_sock.revents != 0){
-                abstract_task* this_task = find_assosiation_by_sock(cur_sock.fd)->task;
+                assosiation* my_ass = find_assosiation_by_sock(cur_sock.fd);
+                abstract_task* this_task = my_ass->task;
+                log_trace("THREAD %d: Processing next socket %d i %d task type %d", curthread_id(), my_ass->socket, i, this_task->type);
                 log_trace("THREAD %d: Processing next socket %d i %d task type %d", curthread_id(), cur_sock.fd, i, this_task->type);
                 if(cur_sock.revents & POLLERR){
                     log_warn("THREAD %d: REVENTS %d POLLERR %d", curthread_id(), cur_sock.revents, POLLERR);
@@ -91,6 +93,7 @@ void* worker_thread_func(void* arg){
             break;
     }
 #ifdef MULTITHREADED
+    log_info("THREAD %d: Finished! Signalling other threads!", curthread_id());
     for(int i = 0; i < pool.size; i++){
         pthread_cond_signal(&pool.threads[i].condvar);
     }

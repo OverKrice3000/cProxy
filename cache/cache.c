@@ -96,7 +96,7 @@ cache_entry* add_entry(char* key){
         pthread_rwlock_unlock(&pr_cache.remove_lock);
         pthread_mutex_unlock(&pr_cache.add_mutex);
         log_trace("THREAD %d: Could not initialize new cache entry. Key:\n%s", curthread_id(), key);
-        return PR_NOT_ENOUGH_MEMORY;
+        return NULL;
     }
     if(pthread_rwlock_init(&pr_cache.entries[pr_cache.size]->value_lock, NULL)){
         free(pr_cache.entries[pr_cache.size]);
@@ -105,7 +105,7 @@ cache_entry* add_entry(char* key){
         pthread_rwlock_unlock(&pr_cache.remove_lock);
         pthread_mutex_unlock(&pr_cache.add_mutex);
         log_trace("THREAD %d: Could not initialize new cache entry. Key:\n%s", curthread_id(), key);
-        return PR_NOT_ENOUGH_MEMORY;
+        return NULL;
     }
 #endif
     pr_cache.entries[pr_cache.size]->key = key;
