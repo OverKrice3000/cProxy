@@ -11,9 +11,15 @@ int set_connect_task(abstract_task* task){
 }
 
 int do_connect_task(worker_thread* thread, abstract_task* task){
+#ifdef MULTITHREADED
+    pthread_mutex_lock(&temp_mutex);
+#endif
     server_task* dec_task = (server_task*)task;
     ssize_t send_val = send(dec_task->server_socket, dec_task->query, dec_task->query_length - dec_task->progress, MSG_NOSIGNAL);
     if(send_val == -1){
+#ifdef MULTITHREADED
+        pthread_mutex_unlock(&temp_mutex);
+#endif
         if(errno == EWOULDBLOCK)
             return PR_CONTINUE;
         else if(errno == EINTR)
@@ -24,12 +30,18 @@ int do_connect_task(worker_thread* thread, abstract_task* task){
         }
     }
     else if(!send_val){
+#ifdef MULTITHREADED
+        pthread_mutex_unlock(&temp_mutex);
+#endif
         log_info("THREAD %d: Server closed connection. Socket: %d", curthread_id(), dec_task->server_socket);
         return task->abort_task(thread, task);
     }
     dec_task->progress += send_val;
     log_info("THREAD %d: Sent %d query bytes to server. Socket : %d", curthread_id(), send_val, dec_task->server_socket);
     if(dec_task->progress != dec_task->query_length){
+#ifdef MULTITHREADED
+        pthread_mutex_unlock(&temp_mutex);
+#endif
         return PR_CONTINUE;
     }
     dec_task->progress = 0;
@@ -39,6 +51,7 @@ int do_connect_task(worker_thread* thread, abstract_task* task){
     if(dec_task->clients_size == 0){
 #ifdef MULTITHREADED
         pthread_mutex_unlock(&dec_task->clients_mutex);
+        pthread_mutex_unlock(&temp_mutex);
 #endif
         log_info("THREAD %d: Found no clients on server with socket : %d", curthread_id(), dec_task->server_socket);
         return task->abort_task(thread, task);
@@ -52,6 +65,9 @@ int do_connect_task(worker_thread* thread, abstract_task* task){
 #endif
     remove_fd(thread, dec_task->server_socket);
     int fd_val = add_fd(thread, dec_task->server_socket, POLLIN);
+#ifdef MULTITHREADED
+    pthread_mutex_unlock(&temp_mutex);
+#endif
     if(fd_val == PR_NOT_ENOUGH_MEMORY){
         return task->abort_task(thread, task);
     }

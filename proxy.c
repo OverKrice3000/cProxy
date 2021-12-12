@@ -25,7 +25,14 @@ cache pr_cache;
 bool end_to_end;
 bool finished;
 
+#ifdef MULTITHREADED
+    pthread_mutex_t temp_mutex;
+#endif
+
 int main(int argc, char** argv){
+#ifdef MULTITHREADED
+    pthread_mutex_init(&temp_mutex);
+#endif
     end_to_end = false;
     finished = false;
     sigset(SIGINT, set_finished);

@@ -15,6 +15,9 @@ int free_client_task(client_task* task){
 }
 
 int abort_client_task(worker_thread* thread, abstract_task* task){
+#ifdef MULTITHREADED
+    pthread_mutex_lock(&temp_mutex);
+#endif
     client_task* dec_task = (client_task*)task;
     log_trace("THREAD %d: Aborting client task. Socket: %d", curthread_id(), dec_task->client_socket);
     if(dec_task->server)
@@ -41,6 +44,9 @@ int abort_client_task(worker_thread* thread, abstract_task* task){
     int fd_val = remove_fd(thread, dec_task->client_socket);
     assert(fd_val == PR_SUCCESS);
     free(task);
+#ifdef MULTITHREADED
+    pthread_mutex_unlock(&temp_mutex);
+#endif
     if(errno == ENOMEM)
         return PR_NOT_ENOUGH_MEMORY;
     return PR_SUCCESS;

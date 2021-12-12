@@ -10,8 +10,14 @@ int set_end_client_task(abstract_task* task){
 }
 
 int do_end_client_task(worker_thread* thread, abstract_task* task){
+#ifdef MULTITHREADED
+    pthread_mutex_lock(&temp_mutex);
+#endif
     client_task* dec_task = (client_task*)task;
     if(is_server_aborted(dec_task->server)){
+#ifdef MULTITHREADED
+        pthread_mutex_unlock(&temp_mutex);
+#endif
         log_info("THREAD %d: Server finished. Socket: %d", curthread_id(), dec_task->client_socket);
         return task->abort_task(thread, task);
     }
@@ -19,6 +25,9 @@ int do_end_client_task(worker_thread* thread, abstract_task* task){
     assert(to_read > 0);
     int send_val = send(dec_task->client_socket, dec_task->server->end_buf + (dec_task->server->end_progress - to_read), to_read, MSG_NOSIGNAL);
     if(send_val == -1){
+#ifdef MULTITHREADED
+        pthread_mutex_unlock(&temp_mutex);
+#endif
         if(errno == EWOULDBLOCK){
             return PR_CONTINUE;
         }
@@ -31,6 +40,9 @@ int do_end_client_task(worker_thread* thread, abstract_task* task){
         }
     }
     else if(!send_val){
+#ifdef MULTITHREADED
+        pthread_mutex_unlock(&temp_mutex);
+#endif
         log_info("THREAD %d: Client %d closed connection", curthread_id(), dec_task->client_socket);
         return task->abort_task(thread, task);
     }
@@ -42,11 +54,19 @@ int do_end_client_task(worker_thread* thread, abstract_task* task){
         if(!dec_task->server->end_clients_reading){
             worker_thread* opt = find_optimal_thread();
             int fd_val = add_fd(opt, dec_task->server->server_socket, POLLIN);
-            if(fd_val == PR_NOT_ENOUGH_MEMORY)
+            if(fd_val == PR_NOT_ENOUGH_MEMORY){
+#ifdef MULTITHREADED
+                pthread_mutex_unlock(&temp_mutex);
+#endif
                 return task->abort_task(thread, task);
+            }
+
         }
         remove_fd(thread, dec_task->client_socket);
     }
+#ifdef MULTITHREADED
+    pthread_mutex_unlock(&temp_mutex);
+#endif
     return PR_CONTINUE;
 }
 
