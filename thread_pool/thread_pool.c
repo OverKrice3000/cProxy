@@ -45,6 +45,7 @@ void* worker_thread_func(void* arg){
 #endif
         log_trace("THREAD %d: New iteration has %d fds", curthread_id(), iter_nsocks);
         int poll_val = poll(self->socks, iter_nsocks, -1);
+        log_trace("THREAD %d: ALALALALALALALLALA", curthread_id(), iter_nsocks);
         if(is_finished()){
 #ifdef MULTITHREADED
             pthread_mutex_unlock(&self->poll_mutex);

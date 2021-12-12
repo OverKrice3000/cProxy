@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <assert.h>
+#include <signal.h>
 
 assosiations task_assosiations;
 thread_pool pool;
@@ -33,7 +34,7 @@ int main(int argc, char** argv){
 #ifdef MULTITHREADED
     pthread_mutex_init(&temp_mutex, NULL);
 #endif
-    end_to_end = false;
+    end_to_end = true;
     finished = false;
     sigset(SIGINT, set_finished);
 
