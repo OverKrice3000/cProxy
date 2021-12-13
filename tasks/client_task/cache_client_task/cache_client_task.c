@@ -12,9 +12,6 @@ int set_cache_client_task(abstract_task* task){
 }
 
 int do_cache_client_task(worker_thread* thread, abstract_task* task){
-#ifdef MULTITHREADED
-    pthread_mutex_lock(&temp_mutex);
-#endif
     client_task* dec_task = (client_task*)task;
     if(!dec_task->entry){
 #ifdef MULTITHREADED
@@ -22,6 +19,7 @@ int do_cache_client_task(worker_thread* thread, abstract_task* task){
         pthread_mutex_lock(&dec_task->server->type_mutex);
 #endif
         if(dec_task->server->entry){
+            log_trace("THREAD %d: Found an entry. Starting! Socket : %d", curthread_id(), dec_task->client_socket);
             dec_task->entry = dec_task->server->entry;
         }
         else if(dec_task->server->type == END_SERVER_TASK){
@@ -74,21 +72,28 @@ int do_cache_client_task(worker_thread* thread, abstract_task* task){
     }
     else if(send_val == PR_ENTRY_NO_NEW_DATA){
 #ifdef MULTITHREADED
-        pthread_mutex_lock(&dec_task->server->abort_mutex);
-        pthread_mutex_lock(&dec_task->server->type_mutex);
+        if(dec_task->server){
+            pthread_mutex_lock(&dec_task->server->abort_mutex);
+            pthread_mutex_lock(&dec_task->server->type_mutex);
+        }
+
 #endif
         if(is_entry_finished(dec_task->entry) == true){
 #ifdef MULTITHREADED
-            pthread_mutex_unlock(&dec_task->server->abort_mutex);
-            pthread_mutex_unlock(&dec_task->server->type_mutex);
+            if(dec_task->server){
+                pthread_mutex_unlock(&dec_task->server->abort_mutex);
+                pthread_mutex_unlock(&dec_task->server->type_mutex);
+            }
 #endif
             log_info("THREAD %d: Finished sending data to client %d", curthread_id(), dec_task->client_socket);
             return task->abort_task(thread, task);
         }
         else if(is_server_aborted(dec_task->server) == true){
 #ifdef MULTITHREADED
-            pthread_mutex_unlock(&dec_task->server->abort_mutex);
-            pthread_mutex_unlock(&dec_task->server->type_mutex);
+            if(dec_task->server){
+                pthread_mutex_unlock(&dec_task->server->abort_mutex);
+                pthread_mutex_unlock(&dec_task->server->type_mutex);
+            }
 #endif
             log_info("THREAD %d: Server aborted connection. Socket : %d", curthread_id(), dec_task->client_socket);
             return task->abort_task(thread, task);
@@ -97,8 +102,10 @@ int do_cache_client_task(worker_thread* thread, abstract_task* task){
             log_trace("THREAD %d: Server changed to end mode. Socket : %d", curthread_id(), dec_task->client_socket);
             client_switch_to_end_mode(thread, task);
 #ifdef MULTITHREADED
-            pthread_mutex_unlock(&dec_task->server->abort_mutex);
-            pthread_mutex_unlock(&dec_task->server->type_mutex);
+            if(dec_task->server){
+                pthread_mutex_unlock(&dec_task->server->abort_mutex);
+                pthread_mutex_unlock(&dec_task->server->type_mutex);
+            }
 #endif
             return PR_CONTINUE;
         }
@@ -106,8 +113,10 @@ int do_cache_client_task(worker_thread* thread, abstract_task* task){
             log_trace("THREAD %d: No new data is availible at the moment. Socket : %d", curthread_id(), dec_task->client_socket);
             remove_fd(thread, dec_task->client_socket);
 #ifdef MULTITHREADED
-            pthread_mutex_unlock(&dec_task->server->abort_mutex);
-            pthread_mutex_unlock(&dec_task->server->type_mutex);
+            if(dec_task->server){
+                pthread_mutex_unlock(&dec_task->server->abort_mutex);
+                pthread_mutex_unlock(&dec_task->server->type_mutex);
+            }
 #endif
             return PR_CONTINUE;
         }

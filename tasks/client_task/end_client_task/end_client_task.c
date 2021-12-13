@@ -86,6 +86,7 @@ int do_end_client_task(worker_thread* thread, abstract_task* task){
 }
 
 int add_server_task_fd(worker_thread* thread, abstract_task* task){
+    client_task* dec_task = (client_task*)task;
     worker_thread* opt = find_optimal_thread();
 #ifdef MULTITHREADED
     pthread_mutex_lock(&opt->stop_mutex);
@@ -93,10 +94,9 @@ int add_server_task_fd(worker_thread* thread, abstract_task* task){
     int fd_val = add_fd(opt, dec_task->server->server_socket, POLLIN);
     if(fd_val == PR_NOT_ENOUGH_MEMORY){
 #ifdef MULTITHREADED
-        pthread_mutex_unlock(&temp_mutex);
         pthread_mutex_unlock(&opt->stop_mutex);
 #endif
-        return PR_NOT_EBOUGH_MEMROY;
+        return PR_NOT_ENOUGH_MEMORY;
     }
 #ifdef MULTITHREADED
     pthread_cond_signal(&opt->condvar);

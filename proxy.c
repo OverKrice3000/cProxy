@@ -19,6 +19,11 @@
 #include <assert.h>
 #include <signal.h>
 
+#ifdef MULTITHREADED
+    #include <pthread.h>
+    pthread_rwlock_t gl_abort_lock;
+#endif
+
 assosiations task_assosiations;
 thread_pool pool;
 cache pr_cache;
@@ -26,15 +31,13 @@ cache pr_cache;
 bool end_to_end;
 bool finished;
 
-#ifdef MULTITHREADED
-    pthread_mutex_t temp_mutex;
-#endif
+
 
 int main(int argc, char** argv){
 #ifdef MULTITHREADED
     pthread_rwlock_init(&gl_abort_lock, NULL);
 #endif
-    end_to_end = true;
+    end_to_end = false;
     finished = false;
     sigset(SIGINT, set_finished);
 
