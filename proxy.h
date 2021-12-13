@@ -28,7 +28,7 @@ void set_finished(int);
 
 #ifdef MULTITHREADED
     #include <pthread.h>
-    extern pthread_mutex_t temp_mutex;
+    extern pthread_rwlock_t gl_abort_lock;
 #endif
 
 #endif

@@ -31,6 +31,8 @@ typedef struct server_task{
     cache_entry* entry;
 #ifdef MULTITHREADED
     pthread_mutex_t clients_mutex;
+    pthread_mutex_t abort_mutex;
+    pthread_mutex_t type_mutex;
 #endif
 } server_task;
 

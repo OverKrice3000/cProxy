@@ -14,23 +14,25 @@ int set_cache_server_task(abstract_task* task){
 }
 
 int do_cache_server_task(worker_thread* thread, abstract_task* task){
-#ifdef MULTITHREADED
-    pthread_mutex_lock(&temp_mutex);
-#endif
     server_task* dec_task = (server_task*)task;
+#ifdef MULTITHREADED
+    pthread_mutex_lock(&dec_task->clients_mutex);
+#endif
     if(dec_task->clients_size == 0){
 #ifdef MULTITHREADED
-        pthread_mutex_unlock(&temp_mutex);
+        pthread_mutex_unlock(&dec_task->clients_mutex);
 #endif
         log_info("THREAD %d: All clients of server %d aborted", curthread_id(), dec_task->server_socket);
         return task->abort_task(thread, task);
     }
+#ifdef MULTITHREADED
+    else{
+        pthread_mutex_unlock(&dec_task->clients_mutex);
+    }
+#endif
     if(is_end_to_end()){
         log_trace("THREAD %d: Switching to end mode. Socket : %d", curthread_id(), dec_task->server_socket);
         int switch_val = server_switch_to_end_mode(thread, task);
-#ifdef MULTITHREADED
-        pthread_mutex_unlock(&temp_mutex);
-#endif
         if(switch_val == PR_NOT_ENOUGH_MEMORY){
             log_trace("THREAD %d: Not enough memory to switch to end mode. Socket : %d", curthread_id(), dec_task->server_socket);
             return task->abort_task(thread, task);
@@ -43,9 +45,6 @@ int do_cache_server_task(worker_thread* thread, abstract_task* task){
     else
         recv_val = recv_entry_from_socket(dec_task->entry, dec_task->server_socket);
     if(recv_val == -1){
-#ifdef MULTITHREADED
-        pthread_mutex_unlock(&temp_mutex);
-#endif
         if(errno == EWOULDBLOCK)
             return PR_CONTINUE;
         else if(errno == EINTR)
@@ -56,19 +55,12 @@ int do_cache_server_task(worker_thread* thread, abstract_task* task){
         }
     }
     else if(recv_val == PR_NOT_ENOUGH_MEMORY){
-#ifdef MULTITHREADED
-        pthread_mutex_unlock(&temp_mutex);
-#endif
         log_info("THREAD %d: Not enough memory to receive data from socket %d", curthread_id(), dec_task->server_socket);
         return task->abort_task(thread, task);
     }
     else if(!recv_val){
         log_info("THREAD %d: Finished reading from server. Socket: %d", curthread_id(), recv_val, dec_task->server_socket);
         set_entry_finished(dec_task->entry);
-        add_client_tasks_fd(thread, task);
-#ifdef MULTITHREADED
-        pthread_mutex_unlock(&temp_mutex);
-#endif
         return task->abort_task(thread, task);
     }
     log_debug("THREAD %d: Received %d bytes from server. Socket: %d", curthread_id(), recv_val, dec_task->server_socket);
@@ -77,9 +69,6 @@ int do_cache_server_task(worker_thread* thread, abstract_task* task){
 
     if(!dec_task->entry){
         if(dec_task->end_progress < 12){
-#ifdef MULTITHREADED
-            pthread_mutex_unlock(&temp_mutex);
-#endif
             return PR_CONTINUE;
         }
 
@@ -87,54 +76,50 @@ int do_cache_server_task(worker_thread* thread, abstract_task* task){
         if(!starts_with_name("200\0", dec_task->end_buf + 9)){
             log_trace("THREAD %d: Switching to end mode. Socket : %d", curthread_id(), dec_task->server_socket);
             int switch_val = server_switch_to_end_mode(thread, task);
-#ifdef MULTITHREADED
-            pthread_mutex_unlock(&temp_mutex);
-#endif
             if(switch_val == PR_NOT_ENOUGH_MEMORY){
-                log_trace("THREAD %d: Not enough memory to switch to end node. Socket : %d", curthread_id(), dec_task->server_socket);
+                log_trace("THREAD %d: Not enough memory to switch to end mode. Socket : %d", curthread_id(), dec_task->server_socket);
                 return task->abort_task(thread, task);
             }
             return PR_CONTINUE;
         }
-        if(contains_entry(dec_task->url)){
-            cache_entry* err_entry = find_entry_by_key(dec_task->url);
-            log_warn("THREAD %d:\n%s", curthread_id(), err_entry->key);
-        }
         assert(!contains_entry(dec_task->url));
         cache_entry* addentr_val = add_entry(dec_task->url);
         if(!addentr_val){
-#ifdef MULTITHREADED
-            pthread_mutex_unlock(&temp_mutex);
-#endif
             return PR_NOT_ENOUGH_MEMORY;
         }
         dec_task->entry = addentr_val;
         int append_val = append_entry(dec_task->entry, dec_task->end_buf, dec_task->end_progress);
         if(append_val == PR_NOT_ENOUGH_MEMORY){
-#ifdef MULTITHREADED
-            pthread_mutex_unlock(&temp_mutex);
-#endif
             return PR_NOT_ENOUGH_MEMORY;
         }
     }
     dec_task->end_progress = 0;
     add_client_tasks_fd(thread, task);
-#ifdef MULTITHREADED
-    pthread_mutex_unlock(&temp_mutex);
-#endif
     return PR_CONTINUE;
 }
 
 int server_switch_to_end_mode(worker_thread* thread, abstract_task* task){
     server_task* dec_task = (server_task*)task;
+#ifdef MULTITHREADED
+    pthread_mutex_lock(&dec_task->type_mutex);
+    pthread_mutex_lock(&dec_task->clients_mutex);
+#endif
+    dec_task->end_clients_reading = dec_task->clients_size;
+#ifdef MULTITHREADED
+    pthread_mutex_unlock(&dec_task->clients_mutex);
+#endif
     int add_val = add_client_tasks_fd(thread, task);
-    if(add_val == PR_NOT_ENOUGH_MEMORY)
+    if(add_val == PR_NOT_ENOUGH_MEMORY){
+#ifdef MULTITHREADED
+        pthread_mutex_unlock(&dec_task->type_mutex);
+#endif
         return PR_NOT_ENOUGH_MEMORY;
-    if(dec_task->end_progress){
-        dec_task->end_clients_reading = dec_task->clients_size;
-        remove_fd(thread, dec_task->server_socket);
     }
+    remove_fd(thread, dec_task->server_socket);
     set_end_server_task(task);
+#ifdef MULTITHREADED
+    pthread_mutex_unlock(&dec_task->type_mutex);
+#endif
     return PR_CONTINUE;
 }
 

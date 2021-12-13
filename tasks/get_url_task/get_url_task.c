@@ -88,6 +88,7 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
     }
 
 #ifdef MULTITHREADED
+    pthread_rwlock_wrlock(&gl_abort_lock);
     lock_assosiations();
 #endif
     if(contains_finished_entry(client->url)){
@@ -103,21 +104,34 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
         server_task* acc_server = NULL;
         for(int i = 0; i < task_assosiations.size; i++){
             abstract_task* next_task = task_assosiations.assosiations[i]->task;
-            if(next_task->type == CACHE_CLIENT_TASK){
-                client_task* dec_client_task = (client_task*)next_task;
-                if(!strcmp(client->url, dec_client_task->url) && !dec_client_task->server->aborted){
-                    assert(!acc_server || acc_server == dec_client_task->server);
-                    assert(dec_client_task->server);
-                    log_trace("THREAD %d: Found UP server task with the same url. Socket : %d. Url :\n%s", curthread_id(), dec_client_task->server->server_socket, client->url);
+            if(next_task->type == CACHE_SERVER_TASK || next_task->type == CONNECT_TASK){
+                server_task* dec_server_task = (server_task*)next_task;
+#ifdef MULTITHREADED
+                pthread_mutex_lock(&dec_server_task->type_mutex);
+                pthread_mutex_lock(&dec_server_task->abort_mutex);
+#endif
+                if(!strcmp(client->url, dec_server_task->url) && (next_task->type == CACHE_SERVER_TASK || next_task->type == CONNECT_TASK) && !is_server_aborted(dec_server_task)){
+                    assert(!acc_server || acc_server == dec_server_task);
+                    log_trace("THREAD %d: Found UP server task with the same url. Socket : %d. Url :\n%s", curthread_id(), dec_server_task->server_socket, client->url);
                     mode |= SERVER_UP;
-                    acc_server = dec_client_task->server;
+                    acc_server = dec_server_task;
+                    break;
                 }
+#ifdef MULTITHREADED
+                pthread_mutex_unlock(&dec_server_task->type_mutex);
+                pthread_mutex_unlock(&dec_server_task->abort_mutex);
+#endif
             }
         }
         set_cache_client_task((abstract_task*)client);
         client->server = acc_server;
-        if(acc_server)
+        if(acc_server){
             add_server_task_client(acc_server, client);
+#ifdef MULTITHREADED
+            pthread_mutex_unlock(&acc_server->type_mutex);
+            pthread_mutex_unlock(&acc_server->abort_mutex);
+#endif
+        }
         if(mode == NO_SERVER){
             log_trace("THREAD %d: No server task found with the same url:\n%s", curthread_id(), client->url);
         }
@@ -127,6 +141,7 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
         set_end_client_task((abstract_task*)client);
     }
 #ifdef MULTITHREADED
+    pthread_rwlock_unlock(&gl_abort_lock);
     unlock_assosiations();
 #endif
 

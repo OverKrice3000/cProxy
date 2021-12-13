@@ -32,7 +32,7 @@ bool finished;
 
 int main(int argc, char** argv){
 #ifdef MULTITHREADED
-    pthread_mutex_init(&temp_mutex, NULL);
+    pthread_rwlock_init(&gl_abort_lock, NULL);
 #endif
     end_to_end = true;
     finished = false;

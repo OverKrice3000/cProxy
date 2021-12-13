@@ -9,24 +9,26 @@ int set_end_server_task(abstract_task* task){
 }
 
 int do_end_server_task(worker_thread* thread, abstract_task* task){
-#ifdef MULTITHREADED
-    pthread_mutex_lock(&temp_mutex);
-#endif
     server_task* dec_task = (server_task*)task;
     dec_task->end_progress = 0;
-    if(dec_task->clients_size == 0){
-        log_info("THREAD %d: All clients of server %d aborted", curthread_id(), dec_task->server_socket);
 #ifdef MULTITHREADED
-        pthread_mutex_unlock(&temp_mutex);
+    pthread_mutex_lock(&dec_task->clients_mutex);
 #endif
+    if(dec_task->clients_size == 0){
+#ifdef MULTITHREADED
+        pthread_mutex_unlock(&dec_task->clients_mutex);
+#endif
+        log_info("THREAD %d: All clients of server %d aborted", curthread_id(), dec_task->server_socket);
         return task->abort_task(thread, task);
     }
-    dec_task->end_clients_reading = dec_task->clients_size;
+    else{
+        dec_task->end_clients_reading = dec_task->clients_size;
+#ifdef MULTITHREADED
+        pthread_mutex_unlock(&dec_task->clients_mutex);
+#endif
+    }
     ssize_t recv_val = recv(dec_task->server_socket, dec_task->end_buf, dec_task->end_capacity, 0);
     if(recv_val == -1){
-#ifdef MULTITHREADED
-        pthread_mutex_unlock(&temp_mutex);
-#endif
         if(errno == EWOULDBLOCK)
             return PR_CONTINUE;
         else if(errno == EINTR)
@@ -37,25 +39,17 @@ int do_end_server_task(worker_thread* thread, abstract_task* task){
         }
     }
     else if(!recv_val){
-#ifdef MULTITHREADED
-        pthread_mutex_unlock(&temp_mutex);
-#endif
         log_info("THREAD %d: Finished reading from server. Socket: %d", curthread_id(), dec_task->server_socket);
         return task->abort_task(thread, task);
     }
     log_debug("THREAD %d: Received %d bytes from server. Socket: %d", curthread_id(), recv_val, dec_task->server_socket);
     dec_task->end_progress += recv_val;
     dec_task->progress += recv_val;
+    remove_fd(thread, dec_task->server_socket);
     int add_val = add_client_tasks_fd(thread, task);
     if(add_val == PR_NOT_ENOUGH_MEMORY){
-#ifdef MULTITHREADED
-        pthread_mutex_unlock(&temp_mutex);
-#endif
         return task->abort_task(thread, task);
     }
-    remove_fd(thread, dec_task->server_socket);
-#ifdef MULTITHREADED
-    pthread_mutex_unlock(&temp_mutex);
-#endif
+
     return PR_CONTINUE;
 }

@@ -134,6 +134,25 @@ int init_server_task(server_task* task, char* query){
         log_trace("THREAD %d: Not enough memory for allocating server clients array", curthread_id());
         return PR_NOT_ENOUGH_MEMORY;
     }
+    if(pthread_mutex_init(&task->abort_mutex, NULL)){
+        close(task->server_socket);
+        free(task->end_buf);
+        free(task->url);
+        free(task->clients);
+        pthread_mutex_destroy(&task->clients_mutex);
+        log_trace("THREAD %d: Not enough memory for allocating server clients array", curthread_id());
+        return PR_NOT_ENOUGH_MEMORY;
+    }
+    if(pthread_mutex_init(&task->type_mutex, NULL)){
+        close(task->server_socket);
+        free(task->end_buf);
+        free(task->url);
+        free(task->clients);
+        pthread_mutex_destroy(&task->clients_mutex);
+        pthread_mutex_destroy(&task->abort_mutex);
+        log_trace("THREAD %d: Not enough memory for allocating server clients array", curthread_id());
+        return PR_NOT_ENOUGH_MEMORY;
+    }
 #endif
     return PR_SUCCESS;
 }
@@ -145,6 +164,8 @@ int free_server_task(server_task* task){
     free(task->clients);
 #ifdef MULTITHREADED
     pthread_mutex_destroy(&task->clients_mutex);
+    pthread_mutex_destroy(&task->type_mutex);
+    pthread_mutex_destroy(&task->abort_mutex);
 #endif
 }
 
@@ -204,10 +225,11 @@ int resize_server_task_clients(server_task* server){
 }
 
 int abort_server_task(worker_thread* thread, abstract_task* task){
-#ifdef MULTITHREADED
-    pthread_mutex_lock(&temp_mutex);
-#endif
     server_task* dec_task = (server_task*)task;
+#ifdef MULTITHREADED
+    pthread_rwlock_rdlock(&gl_abort_lock);
+    pthread_mutex_lock(&dec_task->abort_mutex);
+#endif
     log_trace("THREAD %d: Aborting server task. Socket: %d", curthread_id(), dec_task->server_socket);
     set_server_aborted(dec_task);
     if(dec_task->clients_size == 0){
@@ -229,11 +251,11 @@ int abort_server_task(worker_thread* thread, abstract_task* task){
     int ass_val = remove_assosiation_by_sock(dec_task->server_socket);
     assert(ass_val == PR_SUCCESS);
     int fd_val = remove_fd(thread, dec_task->server_socket);
-    assert(fd_val == PR_SUCCESS);
     if(dec_task->clients_size == 0)
         free(task);
 #ifdef MULTITHREADED
-    pthread_mutex_unlock(&temp_mutex);
+    pthread_rwlock_unlock(&gl_abort_lock);
+    pthread_mutex_unlock(&dec_task->abort_mutex);
 #endif
     if(errno == ENOMEM)
         return PR_NOT_ENOUGH_MEMORY;
