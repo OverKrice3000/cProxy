@@ -31,8 +31,6 @@ cache pr_cache;
 bool end_to_end;
 bool finished;
 
-
-
 int main(int argc, char** argv){
 #ifdef MULTITHREADED
     pthread_rwlock_init(&gl_abort_lock, NULL);
@@ -57,7 +55,7 @@ int main(int argc, char** argv){
         perror("Could not allocate memory for application");
         return -1;
     }
-    log_set_level(LOG_TRACE);
+    log_set_level(LOG_FATAL);
 #ifdef MULTITHREADED
     log_set_lock(logger_lock_function, NULL);
 #endif
