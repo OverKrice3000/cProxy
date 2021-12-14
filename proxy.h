@@ -16,6 +16,7 @@
 #define PR_GETHOST_BUFSIZ 8192
 #define PR_END_SERVER_BUFSIZ 8192
 #define PR_BYTES_FROM_CACHE_PER_ITERATION 65536
+#define PR_THREADS_DEFAULT 4
 
 extern bool end_to_end;
 extern bool finished;
@@ -25,6 +26,8 @@ bool is_finished();
 
 void set_end_to_end();
 void set_finished(int);
+
+void set_log_level_from_cmd();
 
 #ifdef MULTITHREADED
     #include <pthread.h>

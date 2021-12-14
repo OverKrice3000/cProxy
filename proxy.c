@@ -31,31 +31,64 @@ cache pr_cache;
 bool end_to_end;
 bool finished;
 
+extern char *optarg;
+extern int opterr, optind, optopt;
+
 int main(int argc, char** argv){
-#ifdef MULTITHREADED
-    pthread_rwlock_init(&gl_abort_lock, NULL);
-#endif
     end_to_end = false;
     finished = false;
+    log_set_level(LOG_FATAL);
     sigset(SIGINT, set_finished);
-
-    int thread_pool_capacity = 1;
+    int thread_pool_capacity = PR_THREADS_DEFAULT;
 #ifdef MULTITHREADED
-    if(argc != 2){
-        perror("bad arguments");
-        return -1;
+    bool threads_set = false;
+    char* options = "h(help)l:(log-level)e(end-to-end)t:(threads)";
+#else
+    char* options = "h(help)l:(log-level)e(end-to-end)";
+#endif
+    int symb;
+    while((symb = getopt(argc, argv, options)) != -1){
+        switch(symb){
+            case '?' :
+                perror("Option not found\n");
+                break;
+            case ':' :
+                perror("Option misses argument\n");
+                break;
+
+            case 'l' :
+                set_log_level_from_cmd();
+                break;
+            case 'e' :
+                printf("Setting proxy to end to end mode\n");
+                end_to_end = true;
+                break;
+#ifdef MULTITHREADED
+            case 't' :
+                if(atoi(optarg) > 0){
+                    thread_pool_capacity = atoi(optarg);
+                    threads_set = true;
+                    printf("Setting thread pool capacity to %d\n", thread_pool_capacity);
+                }
+                break;
+#endif
+            case 'h' :
+#ifdef MULTITHREADED
+                printf("usage: ./mtserver.out [-t <threads_num> | --threads=<threads_num>] [-h | --help] [-e | --end-to-end] [-l <log_level> | --log-level=<log_level>]\n");
+#else
+                printf("usage: ./server.out [-h | --help] [-e | --end-to-end] [-l <log_level> | --log-level=<log_level>]\n");
+#endif
+                return 0;
+        }
     }
-    thread_pool_capacity = atoi(argv[1]);
-    if(thread_pool_capacity <= 0){
-        perror("bad arguments");
-        return -1;
-    }
+#ifdef MULTITHREADED
+    if(!threads_set)
+        printf("Did not find threads flag! Setting thread pool capacity to default value %d\n", PR_THREADS_DEFAULT);
 #endif
     if(init_logger() == PR_NOT_ENOUGH_MEMORY){
         perror("Could not allocate memory for application");
         return -1;
     }
-    log_set_level(LOG_FATAL);
 #ifdef MULTITHREADED
     log_set_lock(logger_lock_function, NULL);
 #endif
@@ -128,9 +161,19 @@ int main(int argc, char** argv){
     }
 
 #ifdef MULTITHREADED
+    if(pthread_rwlock_init(&gl_abort_lock, NULL)){
+        close(server_socket);
+        destroy_logger();
+        destroy_assosiations();
+        destroy_thread_pool();
+        destroy_cache();
+        perror("Could not allocate memory for application");
+        return -1;
+    }
     for(int i = 0; i < thread_pool_capacity - 1; i++){
         if(start_worker_thread() != PR_SUCCESS){
             perror("Could not start a thread");
+            pthread_rwlock_destroy(&gl_abort_lock);
             close_worker_threads();
             close(server_socket);
             destroy_logger();
@@ -176,6 +219,9 @@ int main(int argc, char** argv){
     destroy_thread_pool();
     destroy_logger();
     destroy_assosiations();
+#ifdef MULTITHREADED
+    pthread_rwlock_destroy(&gl_abort_lock);
+#endif
 	return 0;
 }
 
@@ -193,4 +239,33 @@ void set_end_to_end(){
 
 void set_finished(int signal){
     finished = true;
+}
+
+void set_log_level_from_cmd(){
+    if(!strcmp("trace", optarg)){
+        printf("Setting log level to trace\n");
+        log_set_level(LOG_TRACE);
+    }
+    else if(!strcmp("debug", optarg)){
+        printf("Setting log level to debug\n");
+        log_set_level(LOG_DEBUG);
+    }
+    else if(!strcmp("info", optarg)){
+        printf("Setting log level to info\n");
+        log_set_level(LOG_INFO);
+    }
+    else if(!strcmp("warn", optarg)){
+        printf("Setting log level to warn\n");
+        log_set_level(LOG_WARN);
+    }
+    else if(!strcmp("error", optarg)){
+        printf("Setting log level to error\n");
+        log_set_level(LOG_ERROR);
+    }
+    else if(!strcmp("fatal", optarg)){
+        printf("Setting log level to fatal\n");
+        log_set_level(LOG_FATAL);
+    }
+    else
+        perror("log level option: bad argument");
 }
