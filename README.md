@@ -12,9 +12,12 @@ A caching proxy server implemented in C99
 ## Running
 1. Running one threaded implementation
 ```
-./server.out
+./server.out [-h | --help] [-e | --end-to-end] 
+[-l <log_level> | --log-level=<log_level>]
 ```
 2. Running multithreaded implementation
 ```
-./mtserver.out {NUM_THREADS}
+./mtserver.out [-t <threads_num> | --threads=<threads_num>]
+[-h | --help] [-e | --end-to-end] 
+[-l <log_level> | --log_level=<log_level>]
 ```
