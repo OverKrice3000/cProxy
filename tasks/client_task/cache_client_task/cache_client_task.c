@@ -76,7 +76,6 @@ int do_cache_client_task(worker_thread* thread, abstract_task* task){
             pthread_mutex_lock(&dec_task->server->abort_mutex);
             pthread_mutex_lock(&dec_task->server->type_mutex);
         }
-
 #endif
         if(is_entry_finished(dec_task->entry) == true){
 #ifdef MULTITHREADED

@@ -180,9 +180,6 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
 
     if(mode == SERVER_FINISHED){
         worker_thread* opt_client = find_optimal_thread();
-#ifdef MULTITHREADED
-        pthread_mutex_lock(&opt_client->stop_mutex);
-#endif
         int fd_val = add_fd(opt_client, client->client_socket, POLLOUT);
         if(fd_val == PR_NOT_ENOUGH_MEMORY){
             free(client);
@@ -190,16 +187,9 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
             free_server_task(server);
             free(server);
             remove_assosiation_by_sock(client->client_socket);
-#ifdef MULTITHREADED
-            pthread_mutex_unlock(&opt_client->stop_mutex);
-#endif
             log_trace("THREAD %d: Not enough memory for adding server fd %d", curthread_id(), server->server_socket);
             return abort_get_url_task(thread, task);
         }
-#ifdef MULTITHREADED
-        pthread_cond_signal(&opt_client->condvar);
-        pthread_mutex_unlock(&opt_client->stop_mutex);
-#endif
         free(dec_task->get_query);
     }
     else if(mode == NO_SERVER){
@@ -214,9 +204,6 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
             log_trace("THREAD %d: Not enough memory for adding assosiation with server socket %d", curthread_id(), server->server_socket);
             return abort_get_url_task(thread, task);
         }
-#ifdef MULTITHREADED
-        pthread_mutex_lock(&opt_server->stop_mutex);
-#endif
         int fd_val = add_fd(opt_server, server->server_socket, POLLOUT);
         if(fd_val == PR_NOT_ENOUGH_MEMORY){
             free(client);
@@ -225,16 +212,12 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
             free(server);
             remove_assosiation_by_sock(client->client_socket);
             remove_assosiation_by_sock(server->server_socket);
-#ifdef MULTITHREADED
-            pthread_mutex_unlock(&opt_server->stop_mutex);
-#endif
             log_trace("THREAD %d: Not enough memory for adding server fd %d", curthread_id(), server->server_socket);
             return abort_get_url_task(thread, task);
         }
-#ifdef MULTITHREADED
-        pthread_cond_signal(&opt_server->condvar);
-        pthread_mutex_unlock(&opt_server->stop_mutex);
-#endif
+    }
+    else{
+        free(dec_task->get_query);
     }
 
     log_trace("THREAD %d: Successfully finished get_url_task", curthread_id());

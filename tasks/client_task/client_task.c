@@ -41,15 +41,7 @@ int abort_client_task(worker_thread* thread, abstract_task* task){
             }
             else if(dec_task->server->type == END_SERVER_TASK){
                 worker_thread* opt = find_optimal_thread();
-#ifdef MULTITHREADED
-                pthread_mutex_lock(&opt->stop_mutex);
-#endif
-
                 int fd_val = add_fd(opt, dec_task->server->server_socket, POLLIN);
-#ifdef MULTITHREADED
-                pthread_cond_signal(&opt->condvar);
-                pthread_mutex_unlock(&opt->stop_mutex);
-#endif
             }
         }
 #ifdef MULTITHREADED

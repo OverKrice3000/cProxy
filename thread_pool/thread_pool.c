@@ -271,6 +271,7 @@ worker_thread_t curthread_id(){
 
 int add_fd(worker_thread* thread, int fd, short events){
 #ifdef MULTITHREADED
+    pthread_mutex_lock(&thread->stop_mutex);
     pthread_mutex_lock(&thread->nsocks_mutex);
 #endif
     int return_code = PR_SUCCESS;
@@ -288,6 +289,7 @@ int add_fd(worker_thread* thread, int fd, short events){
     if(return_code == PR_NOT_ENOUGH_MEMORY){
 #ifdef MULTITHREADED
         pthread_mutex_unlock(&thread->nsocks_mutex);
+        pthread_mutex_unlock(&thread->stop_mutex);
 #endif
         log_trace("THREAD %d: Could not add fd %d to thread %d", curthread_id(), fd, thread->id);
         return PR_NOT_ENOUGH_MEMORY;
@@ -299,7 +301,10 @@ int add_fd(worker_thread* thread, int fd, short events){
     };
     thread->socks[thread->nsocks++] = new_fd;
 #ifdef MULTITHREADED
+    pthread_kill(thread->id, SIGUSR1);
+    pthread_cond_signal(&thread->condvar);
     pthread_mutex_unlock(&thread->nsocks_mutex);
+    pthread_mutex_unlock(&thread->stop_mutex);
 #endif
     log_trace("THREAD %d: Successfully added fd %d to thread %d", curthread_id(), fd, thread->id);
     return PR_SUCCESS;

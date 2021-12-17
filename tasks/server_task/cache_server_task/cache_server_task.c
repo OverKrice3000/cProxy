@@ -50,6 +50,7 @@ int do_cache_server_task(worker_thread* thread, abstract_task* task){
         else if(errno == EINTR)
             return PR_CONTINUE;
         else{
+            perror("");
             log_info("THREAD %d: Error occured while receiving data from socket %d", curthread_id(), dec_task->server_socket);
             return task->abort_task(thread, task);
         }
