@@ -22,7 +22,6 @@ int abort_client_task(worker_thread* thread, abstract_task* task){
     log_trace("THREAD %d: Aborting client task. Socket: %d", curthread_id(), dec_task->client_socket);
     if(dec_task->server)
         remove_client_task_from_server(dec_task->server, dec_task);
-
     if(dec_task->server){
 #ifdef MULTITHREADED
       pthread_mutex_lock(&dec_task->server->clients_mutex);
@@ -45,6 +44,7 @@ int abort_client_task(worker_thread* thread, abstract_task* task){
 #ifdef MULTITHREADED
                 pthread_mutex_lock(&opt->stop_mutex);
 #endif
+
                 int fd_val = add_fd(opt, dec_task->server->server_socket, POLLIN);
 #ifdef MULTITHREADED
                 pthread_cond_signal(&opt->condvar);
@@ -52,6 +52,11 @@ int abort_client_task(worker_thread* thread, abstract_task* task){
 #endif
             }
         }
+#ifdef MULTITHREADED
+        else{
+            pthread_mutex_unlock(&dec_task->server->clients_mutex);
+        }
+#endif
     }
     free(dec_task->url);
     close(dec_task->client_socket);

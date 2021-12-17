@@ -43,9 +43,8 @@ void* worker_thread_func(void* arg){
         pthread_mutex_unlock(&self->stop_mutex);
         pthread_mutex_lock(&self->poll_mutex);
 #endif
-        log_trace("THREAD %d: New iteration has %d fds", curthread_id(), iter_nsocks);
+        log_info("THREAD %d: New iteration has %d fds", curthread_id(), iter_nsocks);
         int poll_val = poll(self->socks, iter_nsocks, -1);
-        log_trace("THREAD %d: ALALALALALALALLALA", curthread_id(), iter_nsocks);
         if(is_finished()){
 #ifdef MULTITHREADED
             pthread_mutex_unlock(&self->poll_mutex);
@@ -72,7 +71,6 @@ void* worker_thread_func(void* arg){
             if(cur_sock.revents != 0){
                 assosiation* my_ass = find_assosiation_by_sock(cur_sock.fd);
                 abstract_task* this_task = my_ass->task;
-                log_trace("THREAD %d: Processing next socket %d i %d task type %d", curthread_id(), my_ass->socket, i, this_task->type);
                 log_trace("THREAD %d: Processing next socket %d i %d task type %d", curthread_id(), cur_sock.fd, i, this_task->type);
                 if(cur_sock.revents & POLLERR){
                     log_warn("THREAD %d: REVENTS %d POLLERR %d", curthread_id(), cur_sock.revents, POLLERR);
@@ -86,6 +84,7 @@ void* worker_thread_func(void* arg){
                         set_end_to_end();
                     }
                 }
+                cur_sock.revents = 0;
                 if(is_finished())
                     break;
             }
@@ -238,15 +237,27 @@ int destroy_thread_pool(){
 worker_thread* find_optimal_thread(){
     assert(pool.size == pool.capacity);
     worker_thread* optimal_thread = pool.threads;
+
 #ifdef MULTITHREADED
+    pthread_mutex_lock(&optimal_thread->nsocks_mutex);
+    log_warn("THREAD %d: THREAD i 0 id %d NSOCKS %d", curthread_id(), optimal_thread->id, pool.threads[0].nsocks);
+    pthread_mutex_unlock(&optimal_thread->nsocks_mutex);
     for(int i = 1; i < pool.size; i++){
         pthread_mutex_lock(&pool.threads[i].nsocks_mutex);
-        if(pool.threads[i].nsocks < optimal_thread->nsocks)
+        pthread_mutex_lock(&optimal_thread->nsocks_mutex);
+        log_warn("THREAD %d: THREAD i %d id %d NSOCKS %d", curthread_id(), i, pool.threads[i].id, pool.threads[i].nsocks);
+        if(pool.threads[i].nsocks < optimal_thread->nsocks){
+            log_warn("THREAD %d: THREAD i %d id %d MADE IT!", curthread_id(), i, pool.threads[i].id, pool.threads[i].nsocks);
+            pthread_mutex_unlock(&optimal_thread->nsocks_mutex);
             optimal_thread = pool.threads + i;
+        }
+        else{
+            pthread_mutex_unlock(&optimal_thread->nsocks_mutex);
+        }
         pthread_mutex_unlock(&pool.threads[i].nsocks_mutex);
     }
 #endif
-    log_trace("THREAD %d: Current optimal thread has id %d", curthread_id(), optimal_thread->id);
+    log_warn("THREAD %d: Current optimal thread has id %d", curthread_id(), optimal_thread->id);
     return optimal_thread;
 }
 

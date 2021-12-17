@@ -227,7 +227,7 @@ int recv_entry_from_socket(cache_entry* entry, int socket){
             return PR_NOT_ENOUGH_MEMORY;
         }
     }
-    int to_recv = min(PR_BYTES_FROM_CACHE_PER_ITERATION, entry->capacity - entry->size);
+    int to_recv = min(PR_BYTES_TO_CACHE_PER_ITERATION, entry->capacity - entry->size);
     int recv_val = recv(socket, entry->value + entry->size, to_recv, 0);
     if(recv_val <= 0){
 #ifdef MULTITHREADED

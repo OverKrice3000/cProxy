@@ -24,6 +24,12 @@
     pthread_rwlock_t gl_abort_lock;
 #endif
 
+pthread_mutex_t end_to_end_mutex;
+pthread_mutex_t finished_mutex;
+
+bool end_to_end;
+bool finished;
+
 assosiations task_assosiations;
 thread_pool pool;
 cache pr_cache;
@@ -38,12 +44,13 @@ int main(int argc, char** argv){
     end_to_end = false;
     finished = false;
     log_set_level(LOG_FATAL);
-    sigset(SIGINT, set_finished);
-    int thread_pool_capacity = PR_THREADS_DEFAULT;
+
 #ifdef MULTITHREADED
+    int thread_pool_capacity = PR_THREADS_DEFAULT;
     bool threads_set = false;
     char* options = "h(help)l:(log-level)e(end-to-end)t:(threads)";
 #else
+    int thread_pool_capacity = 1;
     char* options = "h(help)l:(log-level)e(end-to-end)";
 #endif
     int symb;
@@ -170,10 +177,37 @@ int main(int argc, char** argv){
         perror("Could not allocate memory for application");
         return -1;
     }
+    if(pthread_mutex_init(&end_to_end_mutex, NULL)){
+        close(server_socket);
+        destroy_logger();
+        destroy_assosiations();
+        destroy_thread_pool();
+        destroy_cache();
+        pthread_rwlock_destroy(&gl_abort_lock);
+        perror("Could not allocate memory for application");
+        return -1;
+    }
+    if(pthread_mutex_init(&finished_mutex, NULL)){
+        close(server_socket);
+        destroy_logger();
+        destroy_assosiations();
+        destroy_thread_pool();
+        destroy_cache();
+        pthread_rwlock_destroy(&gl_abort_lock);
+        pthread_mutex_destroy(&end_to_end_mutex);
+        perror("Could not allocate memory for application");
+        return -1;
+    }
+#endif
+    sigset(SIGINT, set_finished);
+    sigset(SIGUSR1, intrpoll);
+#ifdef MULTITHREADED
     for(int i = 0; i < thread_pool_capacity - 1; i++){
         if(start_worker_thread() != PR_SUCCESS){
             perror("Could not start a thread");
             pthread_rwlock_destroy(&gl_abort_lock);
+            pthread_rwlock_destroy(&gl_abort_lock);
+            pthread_mutex_destroy(&end_to_end_mutex);
             close_worker_threads();
             close(server_socket);
             destroy_logger();
@@ -221,24 +255,55 @@ int main(int argc, char** argv){
     destroy_assosiations();
 #ifdef MULTITHREADED
     pthread_rwlock_destroy(&gl_abort_lock);
+    pthread_rwlock_destroy(&gl_abort_lock);
+    pthread_mutex_destroy(&end_to_end_mutex);
+    pthread_mutex_destroy(&finished_mutex);
 #endif
 	return 0;
 }
 
+void intrpoll(int signal){}
+
 bool is_end_to_end(){
-    return end_to_end;
+#ifdef MULTITHREADED
+    pthread_mutex_lock(&end_to_end_mutex);
+#endif
+    bool cur_end_to_end = end_to_end;
+#ifdef MULTITHREADED
+    pthread_mutex_unlock(&end_to_end_mutex);
+#endif
+    return cur_end_to_end;
 }
 
 bool is_finished(){
-    return finished;
+#ifdef MULTITHREADED
+    pthread_mutex_lock(&finished_mutex);
+#endif
+    bool cur_finished = finished;
+#ifdef MULTITHREADED
+    pthread_mutex_unlock(&finished_mutex);
+#endif
+    return cur_finished;
 }
 
 void set_end_to_end(){
+#ifdef MULTITHREADED
+    pthread_mutex_lock(&end_to_end_mutex);
+#endif
     end_to_end = true;
+#ifdef MULTITHREADED
+    pthread_mutex_unlock(&end_to_end_mutex);
+#endif
 }
 
 void set_finished(int signal){
+#ifdef MULTITHREADED
+    pthread_mutex_lock(&finished_mutex);
+#endif
     finished = true;
+#ifdef MULTITHREADED
+    pthread_mutex_unlock(&finished_mutex);
+#endif
 }
 
 void set_log_level_from_cmd(){
