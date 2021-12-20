@@ -33,11 +33,16 @@ int abort_client_task(worker_thread* thread, abstract_task* task){
             if(is_server_aborted(dec_task->server)){
                 log_trace("THREAD %d: I am last client of server %d. My socket: %d", curthread_id(), dec_task->server->server_socket, dec_task->client_socket);
                 free(dec_task->server->clients);
-                free(dec_task->server);
                 cache_entry* aentry = find_entry_by_key(dec_task->url);
                 if(aentry && !is_entry_finished(aentry)){
                     remove_entry_by_key(dec_task->url);
                 }
+#ifdef MULTITHREADED
+                pthread_mutex_destroy(&dec_task->server->clients_mutex);
+                pthread_mutex_destroy(&dec_task->server->abort_mutex);
+                pthread_mutex_destroy(&dec_task->server->type_mutex);
+#endif
+                free(dec_task->server);
             }
             else if(dec_task->server->type == END_SERVER_TASK){
                 worker_thread* opt = find_optimal_thread();

@@ -86,8 +86,16 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
         log_trace("THREAD %d: Not enough memory for allocating place for url for client with socket %d", curthread_id(), dec_task->client_socket);
         return abort_get_url_task(thread, task);
     }
+    int ass_val = add_assosiation(client->client_socket, (abstract_task*)client);
+    if(ass_val == PR_NOT_ENOUGH_MEMORY){
+        free(client);
+        free(client->url);
+        log_trace("THREAD %d: Not enough memory for adding assosiation with client socket %d", curthread_id(), client->client_socket);
+        return abort_get_url_task(thread, task);
+    }
 
 #ifdef MULTITHREADED
+    pthread_mutex_lock(&coll_server_mutex);
     pthread_rwlock_wrlock(&gl_abort_lock);
     lock_assosiations();
 #endif
@@ -98,9 +106,13 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
         assert(entry);
         client->entry = entry;
         mode = SERVER_FINISHED;
+#ifdef MULTITHREADED
+        pthread_mutex_unlock(&coll_server_mutex);
+#endif
     }
     else if(!is_end_to_end()){
         log_trace("THREAD %d: Adding new cache client. Socket : %d", curthread_id(), dec_task->client_socket);
+        log_trace("THREAD %d: AddiGFGFGFGFGFGFGFket : %d", curthread_id(), dec_task->client_socket);
         server_task* acc_server = NULL;
         for(int i = 0; i < task_assosiations.size; i++){
             abstract_task* next_task = task_assosiations.assosiations[i]->task;
@@ -130,15 +142,19 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
 #ifdef MULTITHREADED
             pthread_mutex_unlock(&acc_server->type_mutex);
             pthread_mutex_unlock(&acc_server->abort_mutex);
+            pthread_mutex_unlock(&coll_server_mutex);
 #endif
         }
-        if(mode == NO_SERVER){
+        else{
             log_trace("THREAD %d: No server task found with the same url:\n%s", curthread_id(), client->url);
         }
     }
     else{
         log_trace("THREAD %d: Adding new end client. Socket : %d", curthread_id(), dec_task->client_socket);
         set_end_client_task((abstract_task*)client);
+#ifdef MULTITHREADED
+        pthread_mutex_unlock(&coll_server_mutex);
+#endif
     }
 #ifdef MULTITHREADED
     pthread_rwlock_unlock(&gl_abort_lock);
@@ -150,6 +166,10 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
         if(!server){
             free(client);
             free(client->url);
+            remove_assosiation_by_sock(client->client_socket);
+#ifdef MULTITHREADED
+            pthread_mutex_unlock(&coll_server_mutex);
+#endif
             log_trace("THREAD %d: Not enough memory for allocating server task", curthread_id());
             return abort_get_url_task(thread, task);
         }
@@ -158,24 +178,32 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
         if(init_serv_val != PR_SUCCESS){
             free(client);
             free(client->url);
+            remove_assosiation_by_sock(client->client_socket);
             free(server);
+#ifdef MULTITHREADED
+            pthread_mutex_unlock(&coll_server_mutex);
+#endif
             log_trace("THREAD %d: Not enough memory for allocating server task", curthread_id());
             return abort_get_url_task(thread, task);
         }
         client->server = server;
         add_server_task_client(server, client);
-    }
-
-    int ass_val = add_assosiation(client->client_socket, (abstract_task*)client);
-    if(ass_val == PR_NOT_ENOUGH_MEMORY){
-        free(client);
-        free(client->url);
-        if(server){
+        ass_val = add_assosiation(server->server_socket, (abstract_task*)server);
+        if(ass_val == PR_NOT_ENOUGH_MEMORY){
+            free(client);
+            free(client->url);
+            remove_assosiation_by_sock(client->client_socket);
             free_server_task(server);
             free(server);
+#ifdef MULTITHREADED
+            pthread_mutex_unlock(&coll_server_mutex);
+#endif
+            log_trace("THREAD %d: Not enough memory for adding assosiation with server socket %d", curthread_id(), server->server_socket);
+            return abort_get_url_task(thread, task);
         }
-        log_trace("THREAD %d: Not enough memory for adding assosiation with client socket %d", curthread_id(), client->client_socket);
-        return abort_get_url_task(thread, task);
+#ifdef MULTITHREADED
+        pthread_mutex_unlock(&coll_server_mutex);
+#endif
     }
 
     if(mode == SERVER_FINISHED){
@@ -194,16 +222,6 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
     }
     else if(mode == NO_SERVER){
         worker_thread* opt_server = find_optimal_thread();
-        ass_val = add_assosiation(server->server_socket, (abstract_task*)server);
-        if(ass_val == PR_NOT_ENOUGH_MEMORY){
-            free(client);
-            free(client->url);
-            free_server_task(server);
-            free(server);
-            remove_assosiation_by_sock(client->client_socket);
-            log_trace("THREAD %d: Not enough memory for adding assosiation with server socket %d", curthread_id(), server->server_socket);
-            return abort_get_url_task(thread, task);
-        }
         int fd_val = add_fd(opt_server, server->server_socket, POLLOUT);
         if(fd_val == PR_NOT_ENOUGH_MEMORY){
             free(client);

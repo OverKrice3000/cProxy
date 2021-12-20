@@ -226,6 +226,7 @@ int resize_server_task_clients(server_task* server){
 
 int abort_server_task(worker_thread* thread, abstract_task* task){
     server_task* dec_task = (server_task*)task;
+    bool to_destroy = false;
 #ifdef MULTITHREADED
     pthread_rwlock_rdlock(&gl_abort_lock);
     pthread_mutex_lock(&dec_task->abort_mutex);
@@ -238,6 +239,7 @@ int abort_server_task(worker_thread* thread, abstract_task* task){
         if(dec_task->entry && !is_entry_finished(dec_task->entry)){
             remove_entry_by_key(dec_task->url);
         }
+        to_destroy = true;
     }
     else{
         add_client_tasks_fd(thread, task);
@@ -251,12 +253,17 @@ int abort_server_task(worker_thread* thread, abstract_task* task){
     int ass_val = remove_assosiation_by_sock(dec_task->server_socket);
     assert(ass_val == PR_SUCCESS);
     int fd_val = remove_fd(thread, dec_task->server_socket);
-    if(dec_task->clients_size == 0)
-        free(task);
 #ifdef MULTITHREADED
     pthread_rwlock_unlock(&gl_abort_lock);
     pthread_mutex_unlock(&dec_task->abort_mutex);
+    if(to_destroy){
+        pthread_mutex_destroy(&dec_task->clients_mutex);
+        pthread_mutex_destroy(&dec_task->abort_mutex);
+        pthread_mutex_destroy(&dec_task->type_mutex);
+    }
 #endif
+    if(dec_task->clients_size == 0)
+        free(task);
     if(errno == ENOMEM)
         return PR_NOT_ENOUGH_MEMORY;
     return PR_SUCCESS;

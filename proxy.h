@@ -32,6 +32,7 @@ void set_log_level_from_cmd();
 #ifdef MULTITHREADED
     #include <pthread.h>
     extern pthread_rwlock_t gl_abort_lock;
+    extern pthread_mutex_t coll_server_mutex;
 #endif
 
 #endif

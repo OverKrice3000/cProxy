@@ -22,10 +22,10 @@
 #ifdef MULTITHREADED
     #include <pthread.h>
     pthread_rwlock_t gl_abort_lock;
+    pthread_mutex_t coll_server_mutex;
+    pthread_mutex_t end_to_end_mutex;
+    pthread_mutex_t finished_mutex;
 #endif
-
-pthread_mutex_t end_to_end_mutex;
-pthread_mutex_t finished_mutex;
 
 bool end_to_end;
 bool finished;
@@ -198,6 +198,18 @@ int main(int argc, char** argv){
         perror("Could not allocate memory for application");
         return -1;
     }
+    if(pthread_mutex_init(&coll_server_mutex, NULL)){
+        close(server_socket);
+        destroy_logger();
+        destroy_assosiations();
+        destroy_thread_pool();
+        destroy_cache();
+        pthread_rwlock_destroy(&gl_abort_lock);
+        pthread_mutex_destroy(&end_to_end_mutex);
+        pthread_mutex_destroy(&finished_mutex);
+        perror("Could not allocate memory for application");
+        return -1;
+    }
 #endif
     sigset(SIGINT, set_finished);
     sigset(SIGUSR1, intrpoll);
@@ -258,6 +270,7 @@ int main(int argc, char** argv){
     pthread_rwlock_destroy(&gl_abort_lock);
     pthread_mutex_destroy(&end_to_end_mutex);
     pthread_mutex_destroy(&finished_mutex);
+    pthread_mutex_destroy(&coll_server_mutex);
 #endif
 	return 0;
 }
