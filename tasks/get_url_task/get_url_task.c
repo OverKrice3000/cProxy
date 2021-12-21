@@ -112,7 +112,6 @@ int do_get_url_task(worker_thread* thread, abstract_task* task){
     }
     else if(!is_end_to_end()){
         log_trace("THREAD %d: Adding new cache client. Socket : %d", curthread_id(), dec_task->client_socket);
-        log_trace("THREAD %d: AddiGFGFGFGFGFGFGFket : %d", curthread_id(), dec_task->client_socket);
         server_task* acc_server = NULL;
         for(int i = 0; i < task_assosiations.size; i++){
             abstract_task* next_task = task_assosiations.assosiations[i]->task;

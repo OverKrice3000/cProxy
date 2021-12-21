@@ -78,7 +78,7 @@ int do_end_client_task(worker_thread* thread, abstract_task* task){
         }
 #ifdef MULTITHREADED
         else{
-            pthread_mutex_lock(&dec_task->server->clients_mutex);
+            pthread_mutex_unlock(&dec_task->server->clients_mutex);
         }
 #endif
     }

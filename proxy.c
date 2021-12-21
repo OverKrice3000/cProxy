@@ -44,6 +44,8 @@ int main(int argc, char** argv){
     end_to_end = false;
     finished = false;
     log_set_level(LOG_FATAL);
+    FILE* log_file = fopen("logfile", "w+t");
+    log_add_fp(log_file, LOG_TRACE);
 
 #ifdef MULTITHREADED
     int thread_pool_capacity = PR_THREADS_DEFAULT;
