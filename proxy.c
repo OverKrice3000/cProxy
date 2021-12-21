@@ -211,8 +211,16 @@ int main(int argc, char** argv){
         return -1;
     }
 #endif
-    sigset(SIGINT, set_finished);
-    sigset(SIGUSR1, intrpoll);
+    struct sigaction proxintr = {
+            .sa_handler = set_finished,
+            .sa_flags = 0
+    };
+    struct sigaction pollintr = {
+            .sa_handler = intrpoll,
+            .sa_flags = 0
+    };
+    sigaction(SIGINT, &proxintr, NULL);
+    sigaction(SIGUSR1, &pollintr, NULL);
 #ifdef MULTITHREADED
     for(int i = 0; i < thread_pool_capacity - 1; i++){
         if(start_worker_thread() != PR_SUCCESS){
@@ -313,7 +321,6 @@ void set_finished(int signal){
 #ifdef MULTITHREADED
     pthread_mutex_lock(&finished_mutex);
 #endif
-    log_info("THREAD %d: HERE AHAHAHAA", curthread_id());
     finished = true;
 #ifdef MULTITHREADED
     pthread_mutex_unlock(&finished_mutex);

@@ -14,6 +14,7 @@
 #include <sys/resource.h>
 #include "tasks/tasks.h"
 #include <unistd.h>
+#include <signal.h>
 #include "socket_to_task/socket_to_task.h"
 
 void* worker_thread_func(void* arg){
@@ -50,6 +51,7 @@ void* worker_thread_func(void* arg){
 #endif
         log_info("THREAD %d: New iteration has %d fds", curthread_id(), iter_nsocks);
         int poll_val = poll(self->socks, iter_nsocks, -1);
+        log_trace("THREAD %d: 1AHAHA1", curthread_id(), iter_nsocks);
         if(is_finished()){
 #ifdef MULTITHREADED
             pthread_mutex_unlock(&self->poll_mutex);
@@ -65,6 +67,7 @@ void* worker_thread_func(void* arg){
             continue;
         }
         for(int i = iter_nsocks - 1; i >= 0; i--){
+            log_trace("THREAD %d: 2AHAHA2", curthread_id(), iter_nsocks);
 #ifdef MULTITHREADED
             pthread_mutex_lock(&self->nsocks_mutex);
 #endif
@@ -74,7 +77,9 @@ void* worker_thread_func(void* arg){
             pthread_mutex_unlock(&self->nsocks_mutex);
 #endif
             if(cur_sock.revents != 0){
+                log_trace("THREAD %d: 3AHAHA3", curthread_id(), iter_nsocks);
                 assosiation* my_ass = find_assosiation_by_sock(cur_sock.fd);
+                log_trace("THREAD %d: 4AHAHA4", curthread_id(), iter_nsocks);
                 abstract_task* this_task = my_ass->task;
                 log_trace("THREAD %d: Processing next socket %d i %d task type %d", curthread_id(), cur_sock.fd, i, this_task->type);
                 if(cur_sock.revents & POLLERR){
