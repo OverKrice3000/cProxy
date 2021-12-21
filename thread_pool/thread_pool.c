@@ -34,8 +34,13 @@ void* worker_thread_func(void* arg){
             }
             pthread_mutex_lock(&self->nsocks_mutex);
         }
-        if(is_finished())
+        if(is_finished()){
+#ifdef MULTITHREADED
+            pthread_mutex_unlock(&self->nsocks_mutex);
+#endif
             break;
+        }
+
 #endif
         int iter_nsocks = self->nsocks;
 #ifdef MULTITHREADED
@@ -240,14 +245,11 @@ worker_thread* find_optimal_thread(){
 
 #ifdef MULTITHREADED
     pthread_mutex_lock(&optimal_thread->nsocks_mutex);
-    log_warn("THREAD %d: THREAD i 0 id %d NSOCKS %d", curthread_id(), optimal_thread->id, pool.threads[0].nsocks);
     pthread_mutex_unlock(&optimal_thread->nsocks_mutex);
     for(int i = 1; i < pool.size; i++){
         pthread_mutex_lock(&pool.threads[i].nsocks_mutex);
         pthread_mutex_lock(&optimal_thread->nsocks_mutex);
-        log_warn("THREAD %d: THREAD i %d id %d NSOCKS %d", curthread_id(), i, pool.threads[i].id, pool.threads[i].nsocks);
         if(pool.threads[i].nsocks < optimal_thread->nsocks){
-            log_warn("THREAD %d: THREAD i %d id %d MADE IT!", curthread_id(), i, pool.threads[i].id, pool.threads[i].nsocks);
             pthread_mutex_unlock(&optimal_thread->nsocks_mutex);
             optimal_thread = pool.threads + i;
         }

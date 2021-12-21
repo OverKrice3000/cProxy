@@ -313,6 +313,7 @@ void set_finished(int signal){
 #ifdef MULTITHREADED
     pthread_mutex_lock(&finished_mutex);
 #endif
+    log_info("THREAD %d: HERE AHAHAHAA", curthread_id());
     finished = true;
 #ifdef MULTITHREADED
     pthread_mutex_unlock(&finished_mutex);
