@@ -45,7 +45,6 @@ int main(int argc, char** argv){
     finished = false;
     log_set_level(LOG_FATAL);
     FILE* log_file = fopen("logfile", "w+t");
-    log_add_fp(log_file, LOG_TRACE);
 
 #ifdef MULTITHREADED
     int thread_pool_capacity = PR_THREADS_DEFAULT;
@@ -66,7 +65,7 @@ int main(int argc, char** argv){
                 break;
 
             case 'l' :
-                set_log_level_from_cmd();
+                set_log_level_from_cmd(log_file);
                 break;
             case 'e' :
                 printf("Setting proxy to end to end mode\n");
@@ -87,6 +86,7 @@ int main(int argc, char** argv){
 #else
                 printf("usage: ./server.out [-h | --help] [-e | --end-to-end] [-l <log_level> | --log-level=<log_level>]\n");
 #endif
+                fclose(log_file);
                 return 0;
         }
     }
@@ -95,6 +95,7 @@ int main(int argc, char** argv){
         printf("Did not find threads flag! Setting thread pool capacity to default value %d\n", PR_THREADS_DEFAULT);
 #endif
     if(init_logger() == PR_NOT_ENOUGH_MEMORY){
+        fclose(log_file);
         perror("Could not allocate memory for application");
         return -1;
     }
@@ -103,6 +104,7 @@ int main(int argc, char** argv){
 #endif
     if(init_assosiations() == PR_NOT_ENOUGH_MEMORY){
         destroy_logger();
+        fclose(log_file);
         perror("Could not allocate memory for application");
         return -1;
     }
@@ -110,6 +112,7 @@ int main(int argc, char** argv){
     if(init_thread_pool(thread_pool_capacity)){
         destroy_logger();
         destroy_assosiations();
+        fclose(log_file);
         perror("Could not allocate memory for application");
         return -1;
     }
@@ -118,6 +121,7 @@ int main(int argc, char** argv){
         destroy_logger();
         destroy_assosiations();
         destroy_thread_pool();
+        fclose(log_file);
         perror("Could not allocate memory for application");
         return -1;
     }
@@ -128,6 +132,7 @@ int main(int argc, char** argv){
         destroy_assosiations();
         destroy_thread_pool();
         destroy_cache();
+        fclose(log_file);
         perror("Could not create server socket");
         return -1;
     }
@@ -147,6 +152,7 @@ int main(int argc, char** argv){
         destroy_assosiations();
         destroy_thread_pool();
         destroy_cache();
+        fclose(log_file);
         perror("Could not set server socket option");
         return -1;
     }
@@ -156,6 +162,7 @@ int main(int argc, char** argv){
         destroy_assosiations();
         destroy_thread_pool();
         destroy_cache();
+        fclose(log_file);
         perror("Could not bind server socket");
         return -1;
     }
@@ -165,6 +172,7 @@ int main(int argc, char** argv){
         destroy_assosiations();
         destroy_thread_pool();
         destroy_cache();
+        fclose(log_file);
         perror("Could not listen server socket");
         return -1;
     }
@@ -176,6 +184,7 @@ int main(int argc, char** argv){
         destroy_assosiations();
         destroy_thread_pool();
         destroy_cache();
+        fclose(log_file);
         perror("Could not allocate memory for application");
         return -1;
     }
@@ -186,6 +195,7 @@ int main(int argc, char** argv){
         destroy_thread_pool();
         destroy_cache();
         pthread_rwlock_destroy(&gl_abort_lock);
+        fclose(log_file);
         perror("Could not allocate memory for application");
         return -1;
     }
@@ -197,6 +207,7 @@ int main(int argc, char** argv){
         destroy_cache();
         pthread_rwlock_destroy(&gl_abort_lock);
         pthread_mutex_destroy(&end_to_end_mutex);
+        fclose(log_file);
         perror("Could not allocate memory for application");
         return -1;
     }
@@ -209,6 +220,7 @@ int main(int argc, char** argv){
         pthread_rwlock_destroy(&gl_abort_lock);
         pthread_mutex_destroy(&end_to_end_mutex);
         pthread_mutex_destroy(&finished_mutex);
+        fclose(log_file);
         perror("Could not allocate memory for application");
         return -1;
     }
@@ -236,6 +248,7 @@ int main(int argc, char** argv){
             destroy_assosiations();
             destroy_thread_pool();
             destroy_cache();
+            fclose(log_file);
             return -1;
         }
     }
@@ -282,6 +295,7 @@ int main(int argc, char** argv){
     pthread_mutex_destroy(&finished_mutex);
     pthread_mutex_destroy(&coll_server_mutex);
 #endif
+    fclose(log_file);
 	return 0;
 }
 
@@ -329,30 +343,36 @@ void set_finished(int signal){
 #endif
 }
 
-void set_log_level_from_cmd(){
+void set_log_level_from_cmd(FILE* log_file){
     if(!strcmp("trace", optarg)){
         printf("Setting log level to trace\n");
         log_set_level(LOG_TRACE);
+        log_add_fp(log_file, LOG_TRACE);
     }
     else if(!strcmp("debug", optarg)){
         printf("Setting log level to debug\n");
         log_set_level(LOG_DEBUG);
+        log_add_fp(log_file, LOG_DEBUG);
     }
     else if(!strcmp("info", optarg)){
         printf("Setting log level to info\n");
         log_set_level(LOG_INFO);
+        log_add_fp(log_file, LOG_INFO);
     }
     else if(!strcmp("warn", optarg)){
         printf("Setting log level to warn\n");
         log_set_level(LOG_WARN);
+        log_add_fp(log_file, LOG_WARN);
     }
     else if(!strcmp("error", optarg)){
         printf("Setting log level to error\n");
         log_set_level(LOG_ERROR);
+        log_add_fp(log_file, LOG_ERROR);
     }
     else if(!strcmp("fatal", optarg)){
         printf("Setting log level to fatal\n");
         log_set_level(LOG_FATAL);
+        log_add_fp(log_file, LOG_FATAL);
     }
     else
         perror("log level option: bad argument");

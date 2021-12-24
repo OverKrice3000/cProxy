@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <netdb.h>
+#include <signal.h>
 #ifdef MULTITHREADED
     #include <pthread.h>
 #endif
@@ -273,8 +274,13 @@ int add_client_tasks_fd(worker_thread* thread, abstract_task* task){
     server_task* dec_task = (server_task*)task;
     log_trace("THREAD %d: Server adding clients fds to threads. Socket: %d", curthread_id(), dec_task->server_socket);
     for(int i = 0; i < dec_task->clients_size; i++){
-        if(dec_task->clients[i]->last_exec && contains_fd(dec_task->clients[i]->last_exec, dec_task->clients[i]->client_socket))
+        if(dec_task->clients[i]->last_exec && contains_fd(dec_task->clients[i]->last_exec, dec_task->clients[i]->client_socket)){
+#ifdef MULTITHREADED
+            pthread_kill(dec_task->clients[i]->last_exec->id, SIGUSR1);
+#endif
             continue;
+        }
+
         worker_thread* opt = find_optimal_thread();
         int fd_val = add_fd(opt, dec_task->clients[i]->client_socket, POLLOUT);
         dec_task->clients[i]->last_exec = opt;
