@@ -47,7 +47,7 @@ int main(int argc, char** argv){
     FILE* log_file = fopen("logfile", "w+t");
 
 #ifdef MULTITHREADED
-    int thread_pool_capacity = PR_THREADS_DEFAULT;
+    int thread_pool_capacity = PR_THREADS_DEFAULT + 1;
     bool threads_set = false;
     char* options = "h(help)l:(log-level)e(end-to-end)t:(threads)";
 #else
@@ -74,7 +74,7 @@ int main(int argc, char** argv){
 #ifdef MULTITHREADED
             case 't' :
                 if(atoi(optarg) > 0){
-                    thread_pool_capacity = atoi(optarg);
+                    thread_pool_capacity = atoi(optarg) + 1;
                     threads_set = true;
                     printf("Setting thread pool capacity to %d\n", thread_pool_capacity);
                 }
@@ -229,12 +229,7 @@ int main(int argc, char** argv){
             .sa_handler = set_finished,
             .sa_flags = 0
     };
-    struct sigaction pollintr = {
-            .sa_handler = intrpoll,
-            .sa_flags = 0
-    };
     sigaction(SIGINT, &proxintr, NULL);
-    sigaction(SIGUSR1, &pollintr, NULL);
 #ifdef MULTITHREADED
     for(int i = 0; i < thread_pool_capacity - 1; i++){
         if(start_worker_thread() != PR_SUCCESS){

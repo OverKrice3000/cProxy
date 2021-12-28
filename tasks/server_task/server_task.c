@@ -275,9 +275,6 @@ int add_client_tasks_fd(worker_thread* thread, abstract_task* task){
     log_trace("THREAD %d: Server adding clients fds to threads. Socket: %d", curthread_id(), dec_task->server_socket);
     for(int i = 0; i < dec_task->clients_size; i++){
         if(dec_task->clients[i]->last_exec && contains_fd(dec_task->clients[i]->last_exec, dec_task->clients[i]->client_socket)){
-#ifdef MULTITHREADED
-            pthread_kill(dec_task->clients[i]->last_exec->id, SIGUSR1);
-#endif
             continue;
         }
 

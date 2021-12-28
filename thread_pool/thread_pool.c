@@ -249,7 +249,7 @@ worker_thread* find_optimal_thread(){
 #ifdef MULTITHREADED
     pthread_mutex_lock(&optimal_thread->nsocks_mutex);
     pthread_mutex_unlock(&optimal_thread->nsocks_mutex);
-    for(int i = 1; i < pool.size; i++){
+    for(int i = 1; i < pool.size - 1; i++){
         pthread_mutex_lock(&pool.threads[i].nsocks_mutex);
         pthread_mutex_lock(&optimal_thread->nsocks_mutex);
         if(pool.threads[i].nsocks < optimal_thread->nsocks){
@@ -306,7 +306,6 @@ int add_fd(worker_thread* thread, int fd, short events){
     };
     thread->socks[thread->nsocks++] = new_fd;
 #ifdef MULTITHREADED
-    pthread_kill(thread->id, SIGUSR1);
     pthread_cond_signal(&thread->condvar);
     pthread_mutex_unlock(&thread->nsocks_mutex);
     pthread_mutex_unlock(&thread->stop_mutex);
