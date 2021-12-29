@@ -27,7 +27,7 @@ void* worker_thread_func(void* arg){
         pthread_mutex_lock(&self->stop_mutex);
         pthread_mutex_lock(&self->nsocks_mutex);
         while(self->nsocks <= 0){
-            log_info("THREAD %d: No tasks found. I sleep.", curthread_id());
+            log_trace("THREAD %d: No tasks found. I sleep.", curthread_id());
             pthread_mutex_unlock(&self->nsocks_mutex);
             pthread_cond_wait(&self->condvar, &self->stop_mutex);
             if(is_finished()){
@@ -50,7 +50,7 @@ void* worker_thread_func(void* arg){
         pthread_mutex_unlock(&self->stop_mutex);
         pthread_mutex_lock(&self->poll_mutex);
 #endif
-        log_info("THREAD %d: New iteration has %d fds", curthread_id(), iter_nsocks);
+        log_trace("THREAD %d: New iteration has %d fds", curthread_id(), iter_nsocks);
         int poll_val = poll(self->socks, iter_nsocks, -1);
         if(is_finished()){
 #ifdef MULTITHREADED
@@ -262,7 +262,7 @@ worker_thread* find_optimal_thread(){
         pthread_mutex_unlock(&pool.threads[i].nsocks_mutex);
     }
 #endif
-    log_warn("THREAD %d: Current optimal thread has id %d", curthread_id(), optimal_thread->id);
+    log_trace("THREAD %d: Current optimal thread has id %d", curthread_id(), optimal_thread->id);
     return optimal_thread;
 }
 
